@@ -1,0 +1,24 @@
+node_modules
+.next
+out
+.env*
+!.env.example
+*.tsbuildinfo
+.vercel
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+
+# e2e
+/e2e/.tmp/
+/e2e/.auth/
+/playwright-report/
+/test-results/
+
+# deploy secrets
+deploy/.env*
+!deploy/env.example

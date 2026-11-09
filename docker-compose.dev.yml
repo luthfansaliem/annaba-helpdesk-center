@@ -1,0 +1,18 @@
+# Local development database. `docker compose -f docker-compose.dev.yml up -d`
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: annaba-digital-dev-db
+    environment:
+      POSTGRES_USER: annaba_digital
+      POSTGRES_PASSWORD: annaba_digital_dev   # dev only
+      POSTGRES_DB: annaba_digital
+    ports: ["5432:5432"]
+    volumes: ["annaba-digital-dev-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U annaba_digital -d annaba_digital"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  annaba-digital-dev-data:

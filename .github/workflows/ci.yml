@@ -1,0 +1,62 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx next lint
+      - run: npx vitest run
+      - run: npm run build
+
+  api:
+    runs-on: ubuntu-latest # Docker is preinstalled: the tests start PostgreSQL through Testcontainers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: dotnet test api/AnnabaDigital.sln -c Release
+      - name: Production image builds
+        run: docker build -t annaba-digital-api:ci ./api
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [web, api]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: annaba_digital, POSTGRES_PASSWORD: annaba_digital_dev, POSTGRES_DB: annaba_digital }
+        ports: ["5432:5432"]
+        options: >-
+          --name annaba-digital-dev-db --health-cmd "pg_isready -U annaba_digital" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+            e2e/.tmp/api.log
+          retention-days: 7

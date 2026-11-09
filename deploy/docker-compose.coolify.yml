@@ -1,0 +1,109 @@
+# Annaba Digital UI + API + PostgreSQL for Coolify (Docker Compose resource).
+# In Coolify: New resource → Docker Compose → repo luthfansaliem/annaba-application-template, branch main,
+# compose file /deploy/docker-compose.coolify.yml, base directory /. Coolify runs compose with --project-directory = the
+# repository root, so build contexts below are relative to the repo root (locally: docker compose --project-directory . -f deploy/...). Put the variables from deploy/env.example in
+# the resource's Environment Variables, and set the domain of the `ui` service (port 3000) to https://template-staging.annabadigital.io.
+# Only the UI is public (through Coolify's proxy). The API and PostgreSQL are reachable only on the compose network;
+# the UI proxies /api/* to http://api:8080 with the shared proxy key.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: annaba_digital
+      POSTGRES_USER: annaba_digital
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - annaba-digital-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U annaba_digital -d annaba_digital"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Scheduled logical backups of the database into a volume (pg_dump custom format, compressed).
+  # The first dump runs ~30 s after start, then every BACKUP_INTERVAL_HOURS; dumps older than BACKUP_KEEP_DAYS are pruned.
+  # A volume on the same VPS does NOT survive losing the VPS: copy the dumps off the machine too (docs/22, "Backups").
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: annaba_digital
+      PGDATABASE: annaba_digital
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - annaba-digital-backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        sleep 30
+        while true; do
+          f=/backups/annaba_digital-$$(date -u +%Y%m%d-%H%M%S).dump
+          if pg_dump -Fc -f "$$f.tmp"; then mv "$$f.tmp" "$$f"; echo "backup ok: $$f"; else echo "backup FAILED" >&2; fi
+          find /backups \( -name '*.dump' -o -name '*.tmp' \) -mtime +$$BACKUP_KEEP_DAYS -delete
+          sleep $$((BACKUP_INTERVAL_HOURS * 3600))
+        done
+    healthcheck:
+      test: ["CMD-SHELL", "find /backups -name '*.dump' -mmin -$$((BACKUP_INTERVAL_HOURS * 120)) | grep -q ."]
+      interval: 5m
+      timeout: 10s
+      retries: 1
+      start_period: 3m
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    expose: ["8080"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: Host=db;Port=5432;Database=annaba_digital;Username=annaba_digital;Password=${POSTGRES_PASSWORD}
+      Api__Origin: ${API_ORIGIN:?set API_ORIGIN to the public https origin of the UI}
+      Api__ProxyKey: ${API_PROXY_KEY:?set API_PROXY_KEY}
+      Api__AutoMigrate: ${API_AUTOMIGRATE:-true}
+      Api__BootstrapAdminEmail: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      Security__CsrfKey: ${SECURITY_CSRF_KEY:?set SECURITY_CSRF_KEY}
+      Security__PasswordPepper: ${SECURITY_PASSWORD_PEPPER:?set SECURITY_PASSWORD_PEPPER}
+      Security__EncryptionKeys__1: ${SECURITY_ENCRYPTION_KEY:?set SECURITY_ENCRYPTION_KEY}
+      Security__CurrentKeyVersion: "1"
+      Email__Provider: ${EMAIL_PROVIDER:-smtp}
+      Email__From: ${EMAIL_FROM:?set EMAIL_FROM}
+      Email__SmtpHost: ${SMTP_HOST:-}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__SmtpSecurity: ${SMTP_SECURITY:-starttls}
+      Email__SmtpUsername: ${SMTP_USERNAME:-}
+      Email__SmtpPassword: ${SMTP_PASSWORD:-}
+      Email__ResendApiKey: ${RESEND_API_KEY:-}
+      Email__LogBodies: "false"
+      Sso__Issuer: ${SSO_ISSUER:-}
+      Sso__ClientId: ${SSO_CLIENT_ID:-}
+      Sso__ClientSecret: ${SSO_CLIENT_SECRET:-}
+      Sso__DisplayName: ${SSO_DISPLAY_NAME:-Single sign-on}
+      Sso__RequireVerifiedEmail: ${SSO_REQUIRE_VERIFIED_EMAIL:-true}
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    expose: ["3000"]
+    environment:
+      API_URL: http://api:8080
+      API_PROXY_KEY: ${API_PROXY_KEY:?set API_PROXY_KEY}
+
+volumes:
+  annaba-digital-backups:
+  annaba-digital-db:

@@ -1,0 +1,12 @@
+node_modules
+.next
+.vercel
+.git
+api
+e2e
+docs
+deploy
+playwright-report
+test-results
+*.md
+.env*
