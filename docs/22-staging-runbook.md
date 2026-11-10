@@ -1,6 +1,6 @@
 # Staging runbook (UI + API + PostgreSQL on the VPS)
 
-Status: **artifacts ready, nothing deployed.** Target decided: the owner's VPS (Ubuntu 24.04, Docker, Coolify proxy on 80/443 with other apps already running), UI at `template-staging.annabadigital.io`, API and database private on the compose network (the UI proxies `/api/*` to them). Vercel and Azure were considered and dropped. No cloud resource, DNS record or secret has been created.
+Status: **production deployed at `https://helpdesk.annabadigital.io`** (see *Production* below). The original staging plan follows. Target decided: the owner's VPS (Ubuntu 24.04, Docker, Coolify proxy on 80/443 with other apps already running), UI at `template-staging.annabadigital.io`, API and database private on the compose network (the UI proxies `/api/*` to them). Vercel and Azure were considered and dropped. No cloud resource, DNS record or secret has been created.
 
 ## What exists
 | Artifact | Purpose |
@@ -129,6 +129,21 @@ Vendor portal: migration `VendorPortal`; the Vendor role is added to existing or
 **Auto-deploy (Coolify).** Resource → Configuration → *Advanced* → enable **Auto Deploy** (needs the GitHub App source). With a deploy key or public repo instead, copy the *Webhook* URL from the resource's *Webhooks* tab into GitHub → repo Settings → Webhooks (event: push, content type JSON, secret as shown). Pushes to `main` then redeploy by themselves; consider protecting `main` so only reviewed PRs land there.
 
 **Monitoring.** (a) Coolify → *Notifications*: enable Email (SMTP, same Gmail settings) or Telegram/Discord for deployment results and *container stopped/unhealthy* events. (b) An external uptime check on `https://template-staging.annabadigital.io/login` every 5 minutes (e.g. UptimeRobot free tier) catches a down proxy or VPS, which Coolify cannot report about itself. (c) The compose healthchecks (`db`, `api`, `ui`, `backup`) are what Coolify uses to mark the resource unhealthy.
+
+## Production: helpdesk.annabadigital.io (deployed 2026-11-11)
+| Item | Value |
+|---|---|
+| Coolify | `https://coolify.annabadigital.io` → project **Annaba Helpdesk** → environment `production` → application `annaba-helpdesk-center:main-…` (Docker Compose build pack) |
+| Source | GitHub App `coolify-annabadigital`, repo `luthfansaliem/annaba-helpdesk-center`, branch `main`, base directory `/`, compose file `/deploy/docker-compose.coolify.yml` |
+| Domain | `ui` service → `https://helpdesk.annabadigital.io`, port 3000 (DNS A record → `187.77.159.9`, the same VPS as Coolify). Coolify adds a `www.` domain automatically; it was removed (no DNS record for it). |
+| Services | `db`, `backup`, `api`, `ui`, `clamav` (virus scanning is on: `CLAMAV_HOST=clamav`, `ALLOW_UNSCANNED_UPLOADS=false`). |
+| Secrets | Generated for this deployment and kept only in the resource's environment variables: `POSTGRES_PASSWORD`, `API_PROXY_KEY`, `SECURITY_CSRF_KEY`, `SECURITY_PASSWORD_PEPPER`, `SECURITY_ENCRYPTION_KEY`. Copy them to the team's password manager; losing the encryption key loses encrypted settings (webhook secrets, inbound-mail token, SSO secret), changing the pepper invalidates every password. |
+| E-mail | Gmail SMTP relay (`smtp.gmail.com:587`, STARTTLS), same account as Annaba Asset; sender `Annaba Helpdesk <no-reply@annabadigital.io>`. |
+| First admin | `BOOTSTRAP_ADMIN_EMAIL=luthfans46@gmail.com`: the invitation is sent while the database has no users. After accepting it, clear the variable. |
+
+Verified on 2026-11-11 (commit `b79e7e9`, first deploy about 7 minutes): Let's Encrypt certificate issued; `/login` 200, `/api/auth/me` 401 and `/api/v1/tickets` 401 through the UI proxy; HSTS, CSP and `X-Frame-Options` headers present; all 38 migrations applied and the bootstrap invitation queued; `clamd` started; the backup service wrote both the first dump and the files archive (`.files.tgz`), which closes the open "not verified on Coolify" item from slice 14. Harmless log lines: Npgsql's `libgssapi_krb5.so.2` notice (Kerberos isn't used); the failed `__EFMigrationsHistory` query on the very first start (the table didn't exist yet); and an ASP.NET Data Protection warning that its keys aren't persisted (nothing in this app relies on them across restarts). Not yet verified: that the invitation reached the inbox.
+
+After the first start: accept the invitation, set a password and enrol MFA; clear `BOOTSTRAP_ADMIN_EMAIL`; turn on **Auto Deploy** if pushes to `main` should redeploy; add an uptime check on `/login`; copy backups off the VPS (`deploy/pull-backups.sh`).
 
 ## Deploying on the VPS through Coolify
 Files: `deploy/docker-compose.coolify.yml` (UI + API + PostgreSQL 16; only the UI is public, the API and DB are not published), the root `Dockerfile` (UI, Next.js standalone) and `deploy/env.example`.
