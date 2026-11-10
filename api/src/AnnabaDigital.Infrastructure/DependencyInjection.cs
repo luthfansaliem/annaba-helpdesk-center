@@ -28,7 +28,12 @@ public static class DependencyInjection
         {
             var cs = connectionStringOverride ?? sp.GetRequiredService<IConfiguration>().GetConnectionString("Default")
                      ?? throw new InvalidOperationException("ConnectionStrings:Default is required.");
-            o.UseNpgsql(cs).UseSnakeCaseNamingConvention().AddInterceptors(new CommandCounter());
+            // Every query carries the tenant filter as "(@bypass OR tenant_id = @tenant)". A prepared statement that PostgreSQL has switched to a generic plan cannot use the
+            // tenant index for it, which made counts and lists scan far more than they need to. Planning each statement with its actual values costs a fraction of a millisecond
+            // and lets the filter fold away.
+            var csb = new Npgsql.NpgsqlConnectionStringBuilder(cs);
+            if (!(csb.Options ?? "").Contains("plan_cache_mode")) csb.Options = ((csb.Options ?? "") + " -c plan_cache_mode=force_custom_plan").Trim();
+            o.UseNpgsql(csb.ConnectionString).UseSnakeCaseNamingConvention().AddInterceptors(new CommandCounter());
         });
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped(sp =>
@@ -64,6 +69,44 @@ public static class DependencyInjection
         services.AddScoped<AccessReviewService>();
         services.AddScoped<TenantService>();
         services.AddScoped<RoleAdminService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.LocationService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.CalendarService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.TeamService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.CatalogService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.ServiceFormService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.PortalCatalogService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.NotificationService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.ApprovalPolicyService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.TicketApprovalService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.SlaService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.AssignmentService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.TicketService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.ReportService>();
+        services.Configure<StorageOptions>(config.GetSection("Storage"));
+        services.AddSingleton<AnnabaDigital.Application.Abstractions.IFileStorage, LocalFileStorage>();
+        services.AddSingleton<AnnabaDigital.Application.Abstractions.IAttachmentScanner>(sp =>
+            string.IsNullOrWhiteSpace(sp.GetRequiredService<IOptions<StorageOptions>>().Value.ClamAvHost)
+                ? new NoopAttachmentScanner()
+                : ActivatorUtilities.CreateInstance<ClamAvAttachmentScanner>(sp));
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.SetupService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.TicketViewService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.ApprovalDelegationService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.AttachmentService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.RetentionService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.FileCheckService>();
+        services.AddScoped<AnnabaDigital.Application.Email.EmailWordingService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.AssetService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.WorkOrderService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.VendorService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.MaintenanceService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.RatingService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.KnowledgeService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.CostService>();
+        services.AddScoped<AnnabaDigital.Application.Helpdesk.EmailIntakeService>();
+        services.AddScoped<AnnabaDigital.Application.Integrations.IntegrationService>();
+        AnnabaDigital.Infrastructure.Integrations.WebhookHttp.AddWebhookHttp(services, config);
+        services.AddHostedService<AnnabaDigital.Infrastructure.Integrations.WebhookDispatcher>();
+        services.AddSingleton<AnnabaDigital.Application.Helpdesk.IInboundMailParser, AnnabaDigital.Infrastructure.Email.InboundMailParser>();
         services.AddScoped<SessionsService>();
         services.AddScoped<MonitoringService>();
         services.AddScoped<DashboardService>();
@@ -75,6 +118,9 @@ public static class DependencyInjection
         services.Configure<ReviewSchedulerOptions>(config.GetSection("ReviewScheduler"));
         services.AddHostedService<AccessReviewScheduler>();
         services.AddHostedService<AccountClosureWorker>();
+        services.AddHostedService<TicketAutoCloseWorker>();
+        services.Configure<SlaWorkerOptions>(config.GetSection("Sla"));
+        services.AddHostedService<SlaWorker>();
         services.AddSingleton<IEmailInfo, EmailInfo>();
         services.AddScoped<IEmailCredentials, DbEmailCredentials>();
         services.AddScoped<InvitationAcceptService>();

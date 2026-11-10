@@ -45,6 +45,8 @@ public class UserProfile
     public bool NotifyProduct { get; set; }
     public int AutoLockMinutes { get; set; } = 15;
     public Guid? AvatarId { get; set; }
+    /// <summary>APR-002. Who this person reports to; an approval step can ask for "the requester's manager".</summary>
+    public Guid? ManagerId { get; set; }
 }
 
 public class Avatar

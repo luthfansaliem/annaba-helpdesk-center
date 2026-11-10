@@ -64,6 +64,7 @@ public sealed partial class TenantService(IAppDb db, IClock clock, ITenantContex
                 if (def.Key == SystemRoles.SuperAdmin) superAdmin = role.Id;
             }
             await db.SaveChangesAsync(ct);
+            await Helpdesk.HelpdeskDefaults.SeedAsync(db, t.Id, now, ct);
             await invitations.CreateAsync(new CreateInvitationRequest(admin, [superAdmin], $"You have been set up as the first administrator of {name}."), actor, client, ct);
         }
         return (await ListAsync(actor, ct)).First(x => x.Id == t.Id);

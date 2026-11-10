@@ -18,6 +18,9 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_URLS=http://+:8080 \
     DOTNET_gcServer=0
 EXPOSE 8080
+# Attachment bytes live here; mount a persistent volume on it (Storage__Path). Created and owned by the app user so a fresh named volume is writable.
+USER root
+RUN mkdir -p /data/files && chown $APP_UID /data/files
 USER $APP_UID
 # /health is served by the API itself and never goes through the UI proxy.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \

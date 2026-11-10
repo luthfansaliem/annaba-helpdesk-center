@@ -1,11 +1,13 @@
 namespace AnnabaDigital.Application.Users;
 
 public sealed record RoleRef(Guid Id, string Key, string Name);
-public sealed record PagedResult<T>(IReadOnlyList<T> Data, int Page, int PageSize, int Total);
+/// <summary><c>Capped</c> = there are more than <c>Total</c> matches; counting stops at a ceiling so that a very broad search stays fast (ticket lists).</summary>
+public sealed record PagedResult<T>(IReadOnlyList<T> Data, int Page, int PageSize, int Total, bool Capped = false);
 
 public sealed record UserListItem(Guid Id, string Name, string Email, string Status, bool Locked, bool Verified, RoleRef[] Roles, DateTimeOffset? LastLoginAt, DateTimeOffset CreatedAt, bool MfaEnabled, long? AvatarVersion = null, bool Manageable = true);
 public sealed record UserDetail(Guid Id, string Name, string Email, string Status, bool Locked, bool Verified, RoleRef[] Roles, DateTimeOffset? LastLoginAt, DateTimeOffset CreatedAt, bool MfaEnabled,
-    string? Phone, string? Department, string? JobTitle, string[] EffectivePermissions, int ActiveSessions, int Version, long? AvatarVersion = null);
+    string? Phone, string? Department, string? JobTitle, string[] EffectivePermissions, int ActiveSessions, int Version, long? AvatarVersion = null, Guid? ManagerId = null, string? ManagerName = null);
+public sealed record SetManagerRequest(Guid? ManagerId);
 
 public sealed record UserQuery(string? Q, string? Status, string? Role, bool? Verified, string? Sort, string? Dir, int Page = 1, int PageSize = 10);
 

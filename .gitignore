@@ -22,3 +22,6 @@ TestResults/
 # deploy secrets
 deploy/.env*
 !deploy/env.example
+
+# local attachment storage (dev runs)
+api/src/AnnabaDigital.Api/data/

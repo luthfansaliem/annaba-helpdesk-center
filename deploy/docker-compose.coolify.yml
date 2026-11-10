@@ -1,8 +1,8 @@
 # Annaba Digital UI + API + PostgreSQL for Coolify (Docker Compose resource).
-# In Coolify: New resource → Docker Compose → repo luthfansaliem/annaba-application-template, branch main,
+# In Coolify: New resource → Docker Compose → repo luthfansaliem/annaba-helpdesk-center, branch main,
 # compose file /deploy/docker-compose.coolify.yml, base directory /. Coolify runs compose with --project-directory = the
 # repository root, so build contexts below are relative to the repo root (locally: docker compose --project-directory . -f deploy/...). Put the variables from deploy/env.example in
-# the resource's Environment Variables, and set the domain of the `ui` service (port 3000) to https://template-staging.annabadigital.io.
+# the resource's Environment Variables, and set the domain of the `ui` service (port 3000) to https://helpdesk.annabadigital.io.
 # Only the UI is public (through Coolify's proxy). The API and PostgreSQL are reachable only on the compose network;
 # the UI proxies /api/* to http://api:8080 with the shared proxy key.
 services:
@@ -21,7 +21,7 @@ services:
       timeout: 3s
       retries: 20
 
-  # Scheduled logical backups of the database into a volume (pg_dump custom format, compressed).
+  # Scheduled logical backups of the database into a volume (pg_dump custom format, compressed), each followed by a tar of the files volume (same name, .files.tgz).
   # The first dump runs ~30 s after start, then every BACKUP_INTERVAL_HOURS; dumps older than BACKUP_KEEP_DAYS are pruned.
   # A volume on the same VPS does NOT survive losing the VPS: copy the dumps off the machine too (docs/22, "Backups").
   backup:
@@ -39,6 +39,7 @@ services:
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
     volumes:
       - annaba-digital-backups:/backups
+      - annaba-digital-files:/data/files:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -46,8 +47,13 @@ services:
         sleep 30
         while true; do
           f=/backups/annaba_digital-$$(date -u +%Y%m%d-%H%M%S).dump
-          if pg_dump -Fc -f "$$f.tmp"; then mv "$$f.tmp" "$$f"; echo "backup ok: $$f"; else echo "backup FAILED" >&2; fi
-          find /backups \( -name '*.dump' -o -name '*.tmp' \) -mtime +$$BACKUP_KEEP_DAYS -delete
+          if pg_dump -Fc -f "$$f.tmp"; then
+            mv "$$f.tmp" "$$f"; echo "backup ok: $$f"
+            # the files volume goes with the dump, taken right after it, so every row in the dump has its bytes in the archive (docs/37)
+            g=$${f%.dump}.files.tgz
+            if tar czf "$$g.tmp" -C /data/files . ; then mv "$$g.tmp" "$$g"; echo "files ok: $$g"; else echo "files backup FAILED" >&2; fi
+          else echo "backup FAILED" >&2; fi
+          find /backups \( -name '*.dump' -o -name '*.files.tgz' -o -name '*.tmp' \) -mtime +$$BACKUP_KEEP_DAYS -delete
           sleep $$((BACKUP_INTERVAL_HOURS * 3600))
         done
     healthcheck:
@@ -65,6 +71,8 @@ services:
       db:
         condition: service_healthy
     expose: ["8080"]
+    volumes:
+      - annaba-digital-files:/data/files
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Default: Host=db;Port=5432;Database=annaba_digital;Username=annaba_digital;Password=${POSTGRES_PASSWORD}
@@ -85,6 +93,10 @@ services:
       Email__SmtpPassword: ${SMTP_PASSWORD:-}
       Email__ResendApiKey: ${RESEND_API_KEY:-}
       Email__LogBodies: "false"
+      # Attachments (docs/30): bytes on a persistent volume; Production refuses to start without a virus scanner (ClamAV) unless you accept unscanned uploads on purpose.
+      Storage__Path: /data/files
+      Storage__ClamAvHost: ${CLAMAV_HOST:-}
+      Storage__AllowUnscanned: ${ALLOW_UNSCANNED_UPLOADS:-false}
       Sso__Issuer: ${SSO_ISSUER:-}
       Sso__ClientId: ${SSO_CLIENT_ID:-}
       Sso__ClientSecret: ${SSO_CLIENT_SECRET:-}
@@ -104,6 +116,22 @@ services:
       API_URL: http://api:8080
       API_PROXY_KEY: ${API_PROXY_KEY:?set API_PROXY_KEY}
 
+  # Virus scanner for attachments (set CLAMAV_HOST=clamav). Needs about 1.5 GB RAM; the first start downloads signatures (a few minutes), uploads fail until it is healthy.
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    expose: ["3310"]
+    volumes:
+      - annaba-digital-clamav:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 5m
+
 volumes:
+  annaba-digital-files:
+  annaba-digital-clamav:
   annaba-digital-backups:
   annaba-digital-db:

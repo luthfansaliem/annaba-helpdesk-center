@@ -28,7 +28,8 @@ public sealed class ApprovalNotificationTests(PostgresFixture fx)
             if (m is not null) return m;
             await Task.Delay(25);
         }
-        throw new TimeoutException($"No '{subject}' email mentioning '{text}'.");
+        var recent = string.Join(" | ", _seed.Mail.Sent.TakeLast(6).Select(x => $"{x.To}: {x.Subject}"));
+        throw new TimeoutException($"No '{subject}' email mentioning '{text}'. Last sent: {recent}");
     }
 
     [Fact]

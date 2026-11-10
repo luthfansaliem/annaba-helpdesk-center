@@ -42,6 +42,17 @@ public sealed class ProbeModule : IEndpointModule
 }
 
 /// <summary>Captures outgoing email so tests can read one-time links (the real adapters are never called).</summary>
+/// <summary>A stand-in for an antivirus: refuses any file containing the marker text (the real hook is the same interface).</summary>
+public sealed class MarkerScanner : IAttachmentScanner
+{
+    public const string Marker = "EICAR-TEST-MARKER";
+    public async Task<ScanResult> ScanAsync(Stream content, string fileName, CancellationToken ct = default)
+    {
+        using var ms = new MemoryStream(); await content.CopyToAsync(ms, ct);
+        return System.Text.Encoding.Latin1.GetString(ms.ToArray()).Contains(Marker) ? new ScanResult(false, "test marker") : new ScanResult(true);
+    }
+}
+
 public sealed class InMemoryEmailSender : IEmailSender
 {
     public System.Collections.Concurrent.ConcurrentQueue<EmailMessage> Sent { get; } = new();
@@ -56,7 +67,8 @@ public sealed class InMemoryEmailSender : IEmailSender
             if (m is not null) return m;
             await Task.Delay(25);
         }
-        throw new TimeoutException($"No email to {to} with subject containing '{subjectContains}'.");
+        var recent = string.Join(" | ", Sent.TakeLast(8).Select(x => $"{x.To}: {x.Subject}"));
+        throw new TimeoutException($"No email to {to} with subject containing '{subjectContains}'. Last sent: {recent}");
     }
 
     public async Task AssertNone(string to, int waitMs = 400)
@@ -76,20 +88,24 @@ public sealed class FakeBreachChecker : IBreachedPasswordChecker
 
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+    /// <summary>Set ANNABA_TEST_PG to an Npgsql connection string (a server where the user may CREATE DATABASE) to run without Docker; otherwise Testcontainers starts postgres:16-alpine.</summary>
+    private static readonly string? External = Environment.GetEnvironmentVariable("ANNABA_TEST_PG") is { Length: > 0 } e ? e : null;
+    // max_connections raised: every isolated test host keeps its own pool and pollers alive for the whole run
+    private readonly PostgreSqlContainer? _pg = External is null ? new PostgreSqlBuilder().WithImage("postgres:16-alpine").WithCommand("-c", "max_connections=400").Build() : null;
     public ApiFactory Factory { get; private set; } = null!;
-    public string AdminConnectionString => _pg.GetConnectionString();
+    public string AdminConnectionString => External ?? _pg!.GetConnectionString();
 
     /// <summary>A brand-new database (migrated + seeded) with its own API host and clock — for tests that need to control *every* Super Admin.</summary>
     public async Task<(ApiFactory Factory, TestClock Clock, string ConnectionString)> NewIsolatedAsync()
     {
         var name = "iso_" + Guid.NewGuid().ToString("N");
-        await using (var admin = new Npgsql.NpgsqlConnection(_pg.GetConnectionString()))
+        await using (var admin = new Npgsql.NpgsqlConnection(AdminConnectionString))
         {
             await admin.OpenAsync();
             await using var cmd = admin.CreateCommand(); cmd.CommandText = $"CREATE DATABASE {name}"; await cmd.ExecuteNonQueryAsync();
         }
-        var cs = new Npgsql.NpgsqlConnectionStringBuilder(_pg.GetConnectionString()) { Database = name }.ConnectionString;
+        // small pools that let idle connections go: dozens of isolated hosts (each with its background pollers) share one server
+        var cs = new Npgsql.NpgsqlConnectionStringBuilder(AdminConnectionString) { Database = name, MaxPoolSize = 6, ConnectionIdleLifetime = 10, ConnectionPruningInterval = 5 }.ConnectionString;
         var clock = new TestClock(); var f = new ApiFactory(cs, clock);
         using var scope = f.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AnnabaDigitalDbContext>();
@@ -101,15 +117,29 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        await _pg.StartAsync();
-        Factory = new ApiFactory(_pg.GetConnectionString(), Clock);
+        if (_pg is not null) { await _pg.StartAsync(); ConnectionString = _pg.GetConnectionString(); }
+        else await CreateFreshDatabaseAsync();
+        Factory = new ApiFactory(ConnectionString, Clock);
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AnnabaDigitalDbContext>();
         await db.Database.MigrateAsync();
         await Seeder.SeedReferenceDataAsync(db, Clock.UtcNow);
     }
 
-    public async Task DisposeAsync() { await Factory.DisposeAsync(); await _pg.DisposeAsync(); }
+    private string ConnectionString = "";
+    /// <summary>With an external server each test run gets its own database, so runs never see each other's rows.</summary>
+    private async Task CreateFreshDatabaseAsync()
+    {
+        var name = "annaba_test_" + Guid.NewGuid().ToString("N");
+        await using (var admin = new Npgsql.NpgsqlConnection(AdminConnectionString))
+        {
+            await admin.OpenAsync();
+            await using var cmd = admin.CreateCommand(); cmd.CommandText = $"CREATE DATABASE {name}"; await cmd.ExecuteNonQueryAsync();
+        }
+        ConnectionString = new Npgsql.NpgsqlConnectionStringBuilder(AdminConnectionString) { Database = name }.ConnectionString;
+    }
+
+    public async Task DisposeAsync() { await Factory.DisposeAsync(); if (_pg is not null) await _pg.DisposeAsync(); }
 }
 
 [CollectionDefinition("db")] public sealed class DbCollection : ICollectionFixture<PostgresFixture>;
@@ -125,7 +155,8 @@ public sealed class ApiFactory(string connectionString, TestClock clock) : WebAp
         builder.ConfigureAppConfiguration((_, cfg) => cfg.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:Default"] = connectionString, ["Api:ProxyKey"] = ProxyKey, ["Api:Origin"] = Origin,
-            ["Api:AutoMigrate"] = "false", ["Retention:Enabled"] = "false", ["ReviewScheduler:Enabled"] = "false", ["Security:CsrfKey"] = "test-csrf-key-0123456789abcdef0123456789",
+            ["Api:AutoMigrate"] = "false", ["Retention:Enabled"] = "false", ["ReviewScheduler:Enabled"] = "false", ["Sla:Enabled"] = "false", ["Storage:Path"] = Path.Combine(Path.GetTempPath(), "annaba-test-files-" + Guid.NewGuid().ToString("N")), ["Security:CsrfKey"] = "test-csrf-key-0123456789abcdef0123456789",
+            ["Webhooks:AllowPrivateTargets"] = "true", ["Webhooks:PollSeconds"] = "1",   // tests deliver to a receiver on 127.0.0.1; the SSRF rules themselves are unit-tested
         }));
         builder.ConfigureTestServices(s =>
         {
@@ -133,6 +164,7 @@ public sealed class ApiFactory(string connectionString, TestClock clock) : WebAp
             s.AddSingleton<IEndpointModule, ProbeModule>();
             s.RemoveAll<IEmailSender>(); s.AddSingleton<InMemoryEmailSender>(); s.AddSingleton<IEmailSender>(sp => sp.GetRequiredService<InMemoryEmailSender>());
             s.RemoveAll<IBreachedPasswordChecker>(); s.AddSingleton<IBreachedPasswordChecker, FakeBreachChecker>();
+            s.RemoveAll<IAttachmentScanner>(); s.AddSingleton<IAttachmentScanner, MarkerScanner>();
         });
     }
 }
@@ -174,6 +206,20 @@ public sealed class TestBrowser(ApiFactory factory, string ip)
             }
         }
         return res;
+    }
+
+    /// <summary>Uploads one file as multipart/form-data (the browser's way), with the same headers and CSRF token as any other write.</summary>
+    public async Task<HttpResponseMessage> UploadAsync(string url, string fileName, byte[] bytes, string contentType = "application/octet-stream")
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, url);
+        if (SendProxyKey) req.Headers.Add("X-Internal-Proxy-Key", ApiFactory.ProxyKey);
+        req.Headers.Add("X-Forwarded-For", Ip); req.Headers.UserAgent.ParseAdd(UserAgent);
+        if (Origin is not null) req.Headers.Add("Origin", Origin);
+        if (CookieValue is not null) req.Headers.Add("Cookie", $"sid={CookieValue}");
+        if (CsrfToken is not null) req.Headers.Add("X-CSRF-Token", CsrfToken);
+        var part = new ByteArrayContent(bytes); part.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        req.Content = new MultipartFormDataContent { { part, "file", fileName } };
+        return await Http.SendAsync(req);
     }
 
     public Task<HttpResponseMessage> Get(string url) => SendAsync(HttpMethod.Get, url);

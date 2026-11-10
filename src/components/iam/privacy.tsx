@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmOverlay, type ConfirmSpec } from "@/components/ui/confirm";
 import { get, post } from "@/lib/api/client";
-import type { ClosureView } from "@/lib/api/types";
+import type { ClosureView, RetentionNotice } from "@/lib/api/types";
 import { useQuery } from "@/lib/hooks";
 import { fmtDateTime } from "@/lib/format";
 import { useRun } from "@/lib/use-run";
@@ -35,9 +35,24 @@ export function PrivacyTab() {
   });
   const cancel = async () => { if ((await run(() => post("/api/me/closure/cancel"), t("Closure cancelled. Your account stays."))).ok) q.reload(); };
 
+  const keep = useQuery(() => get<RetentionNotice>("/api/retention/notice"), []);
+  const n = keep.data;
+
   return (
     <div className="stack" style={{ paddingTop: 16 }}>
-      <Panel title={t("Download my data")} description={t("A copy of what the system holds about you: profile, roles, sessions and your recorded activity. It never contains passwords, authenticator secrets or other people's data. You are asked for your password first.")}>
+      <Panel title={t("How long your data is kept")} description={t("What your organisation's helpdesk keeps about your requests, and for how long.")}>
+        {!n ? <p className="tab-placeholder" style={{ margin: 0 }}>{t("Loading…")}</p> : !n.enabled || (n.finishedTicketDays === null && n.attachmentDays === null && n.notificationDays === null)
+          ? <p style={{ margin: 0 }}>{t("Your organisation has not set a time limit yet, so requests, files and notifications are kept until an administrator removes them.")}</p>
+          : <ul className="stack" style={{ margin: 0 }} data-testid="retention-notice">
+            {n.finishedTicketDays !== null && <li>{n.ticketAction === "delete"
+              ? t("Requests are deleted {n} days after they were finished.", { n: n.finishedTicketDays })
+              : t("What you wrote on a request is removed {n} days after it was finished. Only its number, service and dates remain for statistics.", { n: n.finishedTicketDays })}</li>}
+            {n.attachmentDays !== null && <li>{t("Files attached to a request are removed {n} days after it was finished.", { n: n.attachmentDays })}</li>}
+            {n.notificationDays !== null && <li>{t("Notifications are removed after {n} days.", { n: n.notificationDays })}</li>}
+            <li>{t("Security logs about your activity are kept for {n} days.", { n: n.auditDays })}</li>
+          </ul>}
+      </Panel>
+      <Panel title={t("Download my data")} description={t("A copy of what the system holds about you: profile, roles, sessions, your recorded activity, and the requests, comments and files you sent to the helpdesk. It never contains passwords, authenticator secrets or other people's data. You are asked for your password first.")}>
         <Button onClick={download} disabled={busy}><Download size={15} /> {busy ? t("Preparing…") : t("Download my data (JSON)")}</Button>
       </Panel>
       <Panel title={t("Close my account")} description={t("Ask an administrator to close your account and erase your personal data.")}>

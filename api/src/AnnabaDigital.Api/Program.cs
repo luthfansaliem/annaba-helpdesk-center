@@ -28,6 +28,7 @@ builder.Services.AddAnnabaDigitalInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<AnnabaDigital.Application.Abstractions.IAppLinks, AppLinks>();
 
+builder.Services.AddMemoryCache();
 builder.Services.AddAuthentication(SessionDefaults.Scheme).AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionDefaults.Scheme, _ => { });
 builder.Services.AddAuthorizationBuilder().SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()); // deny by default
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
@@ -55,8 +56,10 @@ app.UseMiddleware<ProxyGateMiddleware>();
 app.UseMiddleware<ExceptionEnvelopeMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseAuthentication();
+app.UseMiddleware<ApiKeyGateMiddleware>();
 app.UseMiddleware<SessionStateMiddleware>();
 app.UseMiddleware<CsrfMiddleware>();
+app.UseMiddleware<VendorPortalGateMiddleware>();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
@@ -71,6 +74,24 @@ app.MapTenants();
 app.MapAccountClosures();
 app.MapRoles();
 app.MapSelfService();
+app.MapHelpdeskSetup();
+app.MapCatalog();
+app.MapTickets();
+app.MapSlaAndRules();
+app.MapApprovals();
+app.MapReports();
+app.MapSetup();
+app.MapTicketViews();
+app.MapRetention();
+app.MapEmailWording();
+app.MapAssets();
+app.MapWorkOrders();
+app.MapVendors();
+app.MapMaintenance();
+app.MapKnowledge();
+app.MapCosts();
+app.MapInboundEmail();
+app.MapIntegrations();
 foreach (var module in app.Services.GetServices<IEndpointModule>()) module.Map(app);
 
 app.Run();

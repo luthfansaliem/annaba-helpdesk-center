@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight, Lock, LogOut, Menu, Moon, Search, Sun, UserRound, X } from "lucide-react";
+import { Bell, BellRing, ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight, Lock, LogOut, Menu, Moon, Search, Sun, UserRound, X } from "lucide-react";
 import { Logo, LogoMark } from "./logo";
 import { Avatar, avatarUrl } from "./ui/avatar";
 import { Overlay } from "./ui/overlay";
 import { cn } from "@/lib/cn";
-import { activeTrail, isGroup, leaves, nav, visibleNav, type NavNode } from "@/config/nav";
+import { activeTrail, isGroup, leaves, nav, vendorNav, visibleNav, type NavNode } from "@/config/nav";
 import { useAuth } from "@/lib/auth";
 import { get, post } from "@/lib/api/client";
 import type { Paged, UserListItem } from "@/lib/api/types";
@@ -52,10 +52,10 @@ function NavTree({ nodes, path, open, toggle, depth = 0, onNavigate, badges = {}
 }
 
 function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { can } = useAuth(); const router = useRouter();
+  const { can, user } = useAuth(); const router = useRouter();
   const [q, setQ] = useState(""); const [idx, setIdx] = useState(0); const dq = useDebounced(q, 200);
   const [people, setPeople] = useState<UserListItem[]>([]);
-  const pages = useMemo(() => leaves(visibleNav(nav, can)).map((l) => ({ label: t(l.label), sub: t("Page"), href: l.href })), [can]);
+  const pages = useMemo(() => leaves(visibleNav(user?.vendorName ? vendorNav : nav, can)).map((l) => ({ label: t(l.label), sub: t("Page"), href: l.href })), [can, user?.vendorName]);
   useEffect(() => {
     if (!open || !can("users.read") || dq.trim().length < 2) { setPeople([]); return; }
     let live = true;
@@ -116,7 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const { can, user, refresh } = useAuth(); const nav2 = useRouter(); const [leaving, setLeaving] = useState(false);
   async function exitSupport() { setLeaving(true); try { await post("/api/tenants/support/exit"); await refresh(); nav2.push("/admin/tenants"); } finally { setLeaving(false); } }
-  const tree = useMemo(() => visibleNav(nav, can), [can]);
+  const tree = useMemo(() => visibleNav(user?.vendorName ? vendorNav : nav, can), [can, user?.vendorName]);
   const path = activeHref(pathname);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [compact, setCompact] = useState(false);
@@ -124,6 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [palette, setPalette] = useState(false);
   const [unack, setUnack] = useState(0);
   const [badges, setBadges] = useState<Record<string, number>>({});
+  const [notes, setNotes] = useState(0);
   const drawer = useRef<HTMLElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
 
@@ -157,12 +158,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => { live = false; clearInterval(t); };
   }, [can, pathname]);
 
+  // everyone: unread notifications (the bell) and approvals waiting for their decision (a sidebar badge)
+  useEffect(() => {
+    let live = true;
+    const load = () => {
+      get<{ unread: number }>("/api/notifications/unread-count", undefined, { noRoute: true }).then((r) => live && setNotes(r.unread), () => {});
+      get<{ pending: number }>("/api/approvals/mine/count", undefined, { noRoute: true }).then((r) => live && setBadges((b) => ({ ...b, "/approvals": r.pending })), () => {});
+    };
+    void load(); const t = setInterval(load, 60_000);
+    window.addEventListener("annaba:notifications", load);   // the notifications screen says when something was read
+    return () => { live = false; clearInterval(t); window.removeEventListener("annaba:notifications", load); };
+  }, [pathname]);
+
   // sidebar badges: requests and review items waiting for this person (only for those who may decide them)
   useEffect(() => {
-    if (!can("users.assign_role")) { setBadges({}); return; }
+    if (!can("users.assign_role")) { setBadges((b) => ({ ...b, "/access-requests": 0, "/access-reviews": 0 })); return; }
     let live = true;
     const load = () => get<{ accessRequests: number; reviewItems: number }>("/api/access-requests/pending-count", undefined, { noRoute: true })
-      .then((r) => live && setBadges({ "/access-requests": r.accessRequests, "/access-reviews": r.reviewItems }), () => {});
+      .then((r) => live && setBadges((b) => ({ ...b, "/access-requests": r.accessRequests, "/access-reviews": r.reviewItems })), () => {});
     void load(); const t = setInterval(load, 60_000);
     return () => { live = false; clearInterval(t); };
   }, [can, pathname]);
@@ -195,7 +208,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })
             : <NavTree nodes={tree} path={path} open={open} toggle={toggle} onNavigate={() => setMobile(false)} badges={badges} />}
         </nav>
-        <button type="button" className="collapse desktop-only" onClick={toggleCompact} aria-pressed={compact} aria-label={compact ? "Expand menu" : "Collapse menu"} title={compact ? t("Expand menu") : t("Collapse menu")}>
+        <button type="button" className="collapse desktop-only" onClick={toggleCompact} aria-pressed={compact} aria-label={compact ? t("Expand menu") : t("Collapse menu")} title={compact ? t("Expand menu") : t("Collapse menu")}>
           <span className="ic">{compact ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}</span><span className="lbl">{t("Collapse menu")}</span>
         </button>
       </aside>
@@ -214,6 +227,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button type="button" className="theme-btn" aria-label={theme.resolved === "dark" ? "Switch to light mode" : "Switch to dark mode"} title={theme.resolved === "dark" ? t("Light mode") : t("Dark mode")} onClick={() => theme.set(theme.resolved === "dark" ? "light" : "dark")}>
               {theme.resolved === "dark" ? <Sun size={19} /> : <Moon size={19} />}
             </button>
+            <Link href="/notifications" className="bell" aria-label={t("{n} unread notifications", { n: notes })}><BellRing size={20} />{notes > 0 && <b>{notes > 99 ? "99+" : notes}</b>}</Link>
             {can("security.read") && (
               <Link href="/security-events" className="bell" aria-label={`${unack} unacknowledged security events`}><Bell size={20} />{unack > 0 && <b>{unack > 99 ? "99+" : unack}</b>}</Link>
             )}

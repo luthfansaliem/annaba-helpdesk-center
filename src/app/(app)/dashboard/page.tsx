@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, BarChart3, CheckCircle2, Circle, Folder, KeyRound, MailPlus, MonitorSmartphone, Plus, ScrollText, ShieldAlert, ShieldCheck, UserCheck, UserX, Users } from "lucide-react";
 import { GreetingHero, type HeroHighlight } from "@/components/greeting-hero";
 import { Card, PanelHeader } from "@/components/ui/card";
@@ -106,7 +108,19 @@ function Mine({ d }: { d: UserDashboard }) {
   );
 }
 
+/** R2-11: a vendor's person has no dashboard; their home is their company's work orders. */
+function VendorHome() {
+  const router = useRouter();
+  useEffect(() => { router.replace("/work-orders"); }, [router]);
+  return null;
+}
+
 export default function DashboardPage() {
+  const { user } = useAuth();
+  return user?.vendorName ? <VendorHome /> : <Dashboard />;
+}
+
+function Dashboard() {
   const { user } = useAuth();
   const q = useQuery(async () => {
     const admin = await get<AdminDashboard>("/api/dashboard/admin");

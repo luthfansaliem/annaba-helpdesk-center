@@ -37,7 +37,9 @@ public sealed class AuthorizationTests(PostgresFixture fx)
             .Where(e => e.RoutePattern.RawText?.StartsWith("/api") == true && e.Metadata.GetMetadata<IAllowAnonymous>() is not null)
             .Select(e => e.RoutePattern.RawText).ToList();
         Assert.Equal(
-            ["/api/auth/forgot-password", "/api/auth/login", "/api/auth/register", "/api/auth/reset-password", "/api/auth/sso/callback", "/api/auth/sso/start", "/api/auth/verify-email", "/api/auth/verify-email/resend", "/api/invitations/accept", "/api/invitations/lookup", "/api/settings/public"],
+            // the two approval-link routes are public on purpose: the one-time token in the e-mailed link is the credential (see ApprovalAndNotificationTests);
+            // so is the inbound e-mail webhook: its secret token is the credential (see EmailIntakeTests)
+            ["/api/approvals/link/{token}", "/api/approvals/link/{token}", "/api/auth/forgot-password", "/api/auth/login", "/api/auth/register", "/api/auth/reset-password", "/api/auth/sso/callback", "/api/auth/sso/start", "/api/auth/verify-email", "/api/auth/verify-email/resend", "/api/inbound/email/{token}", "/api/invitations/accept", "/api/invitations/lookup", "/api/settings/public"],
             api.Order().ToList());
     }
 

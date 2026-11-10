@@ -9,7 +9,7 @@ using AnnabaDigital.Domain.Entities;
 namespace AnnabaDigital.Application.Auth;
 
 public sealed record LoginRequest(string? Email, string? Password, bool Remember);
-public sealed record MeDto(Guid Id, string Email, string Name, string[] Roles, string[] Permissions, bool Locked, bool MfaEnrolled, long? AvatarVersion = null, string TenantName = "", bool IsPlatform = false, string? ActingTenant = null, string Language = "en");
+public sealed record MeDto(Guid Id, string Email, string Name, string[] Roles, string[] Permissions, bool Locked, bool MfaEnrolled, long? AvatarVersion = null, string TenantName = "", bool IsPlatform = false, string? ActingTenant = null, string Language = "en", string? VendorName = null);
 public sealed record LoginResult(string Status, string? RawToken, bool Remember, MeDto? User);
 
 public static class LoginStatus
@@ -307,6 +307,7 @@ public sealed class AuthService(
         var avatarAt = await db.Avatars.AsNoTracking().Where(a => a.UserId == user.Id).Select(a => (DateTimeOffset?)a.CreatedAt).FirstOrDefaultAsync(ct);
         var tenant = await tenants.GetAsync(user.TenantId, ct) ?? throw new InvalidOperationException("The person's organisation is missing.");
         var language = await db.Profiles.AsNoTracking().Where(p => p.UserId == user.Id).Select(p => p.Language).FirstOrDefaultAsync(ct) ?? "en";
-        return new MeDto(user.Id, user.Email, user.Name, [.. roleNames.Order()], [.. perms.Order()], locked, mfa, avatarAt?.ToUnixTimeMilliseconds(), tenant.Name, tenant.IsPlatform, null, language);
+        var vendor = await db.VendorUsers.AsNoTracking().Where(v => v.UserId == user.Id).Select(v => db.Vendors.Where(x => x.Id == v.VendorId).Select(x => x.Name).FirstOrDefault()).FirstOrDefaultAsync(ct);
+        return new MeDto(user.Id, user.Email, user.Name, [.. roleNames.Order()], [.. perms.Order()], locked, mfa, avatarAt?.ToUnixTimeMilliseconds(), tenant.Name, tenant.IsPlatform, null, language, vendor);
     }
 }

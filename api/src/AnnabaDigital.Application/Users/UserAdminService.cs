@@ -83,7 +83,8 @@ public sealed class UserAdminService(
         var avatarAt = await db.Avatars.AsNoTracking().Where(a => a.UserId == id).Select(a => (DateTimeOffset?)a.CreatedAt).FirstOrDefaultAsync(ct);
         return new UserDetail(u.Id, u.Name, u.Email, u.Status.ToString().ToLowerInvariant(), u.LockedUntil > now, u.EmailVerifiedAt != null,
             u.UserRoles.Select(r => new RoleRef(r.Role!.Id, r.Role.Key, r.Role.Name)).OrderBy(r => r.Name).ToArray(), u.LastLoginAt, u.CreatedAt,
-            u.MfaFactors.Any(f => f.ConfirmedAt != null), u.Profile?.Phone, u.Profile?.Department, u.Profile?.JobTitle, [.. perms.Order()], live, u.Version, avatarAt?.ToUnixTimeMilliseconds());
+            u.MfaFactors.Any(f => f.ConfirmedAt != null), u.Profile?.Phone, u.Profile?.Department, u.Profile?.JobTitle, [.. perms.Order()], live, u.Version, avatarAt?.ToUnixTimeMilliseconds(),
+            u.Profile?.ManagerId, u.Profile?.ManagerId is { } mid ? await db.Users.AsNoTracking().Where(x => x.Id == mid).Select(x => x.Name).FirstOrDefaultAsync(ct) : null);
     }
 
     public async Task<UserStats> StatsAsync(SessionPrincipal actor, CancellationToken ct = default)
@@ -252,6 +253,35 @@ public sealed class UserAdminService(
 
         target.Version++; target.UpdatedAt = clock.UtcNow;
         audit.Record("user.update", "user", id.ToString(), Outcome.Success, client, actor.UserId, actor.Email, diff: diff);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { db.ResetTracking(); throw DomainException.Conflict("This user was changed by someone else. Reload and try again."); }
+        return await GetAsync(id, ct);
+    }
+
+    // ============================================================ manager (APR-002)
+    /// <summary>Sets or clears who a person reports to. The manager must be an active person of the organisation, never the person themselves, and the chain must not loop back.</summary>
+    public async Task<UserDetail> SetManagerAsync(Guid id, Guid? managerId, SessionPrincipal actor, ClientInfo client, CancellationToken ct = default)
+    {
+        var target = await LoadManageableAsync(id, actor, "user.manager", client, ct);
+        target.Profile ??= new UserProfile { UserId = target.Id };
+        if (managerId is { } m)
+        {
+            if (m == id) throw DomainException.Validation("Please correct the highlighted fields.", new Dictionary<string, string> { ["managerId"] = "Nobody can be their own manager." });
+            if (!await db.Users.AnyAsync(u => u.Id == m && u.Status == UserStatus.Active, ct)) throw DomainException.Validation("Please correct the highlighted fields.", new Dictionary<string, string> { ["managerId"] = "Choose an active person of your organisation." });
+            // walking up from the new manager must never reach this person
+            var up = m;
+            for (var hops = 0; hops < 50 && up != default; hops++)
+            {
+                var next = await db.Profiles.AsNoTracking().Where(p => p.UserId == up).Select(p => p.ManagerId).FirstOrDefaultAsync(ct);
+                if (next is null) break;
+                if (next == id) throw DomainException.Validation("Please correct the highlighted fields.", new Dictionary<string, string> { ["managerId"] = "That would make the reporting line loop back to this person." });
+                up = next.Value;
+            }
+        }
+        if (target.Profile.ManagerId == managerId) return await GetAsync(id, ct);
+        var before = target.Profile.ManagerId;
+        target.Profile.ManagerId = managerId; target.Version++; target.UpdatedAt = clock.UtcNow;
+        audit.Record("user.manager", "user", id.ToString(), Outcome.Success, client, actor.UserId, actor.Email, diff: [new AuditDiff("manager", before?.ToString() ?? "", managerId?.ToString() ?? "")]);
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { db.ResetTracking(); throw DomainException.Conflict("This user was changed by someone else. Reload and try again."); }
         return await GetAsync(id, ct);

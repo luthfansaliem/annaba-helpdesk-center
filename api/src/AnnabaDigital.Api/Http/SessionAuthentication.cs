@@ -16,6 +16,16 @@ public sealed class SessionAuthenticationHandler(
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // INT-001: the public API takes "Authorization: Bearer adk_…" (an API key acting as the person who made it, within its scopes); nothing else does.
+        if (Request.Path.StartsWithSegments(ApiKeyDefaults.PathPrefix) && Request.Headers.Authorization.ToString() is { Length: > 7 } auth && auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            var key = await Context.RequestServices.GetRequiredService<AnnabaDigital.Application.Integrations.IntegrationService>().ValidateAsync(auth[7..].Trim(), Context.RequestAborted);
+            if (key is null) return AuthenticateResult.Fail("Invalid, revoked or expired API key.");
+            Context.Items[ApiKeyDefaults.ItemKey] = key;
+            Context.Items[SessionDefaults.ItemKey] = new SessionPrincipal(key.KeyId, key.UserId, key.Email, key.Name, false, false, null, TenantId: key.TenantId);
+            tenant.Use(key.TenantId, false);
+            return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, key.UserId.ToString()), new Claim("api_key", key.KeyId.ToString())], SessionDefaults.Scheme)), SessionDefaults.Scheme));
+        }
         if (!Request.Cookies.TryGetValue(api.Value.CookieName, out var raw)) return AuthenticateResult.NoResult();
         var principal = await sessions.ValidateAsync(raw, Context.RequestAborted);
         if (principal is null) return AuthenticateResult.Fail("Invalid or expired session.");

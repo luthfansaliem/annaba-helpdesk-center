@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { authFile } from "./helpers";
 
 const publicPages = ["/login", "/forgot-password", "/register"];
-const appPages = ["/dashboard", "/users", "/users/all", "/users/invitations", "/roles", "/permissions", "/access-matrix", "/sessions", "/access-requests", "/access-reviews", "/audit", "/security-events", "/profile", "/profile?tab=security", "/settings", "/admin/settings", "/admin/email", "/admin/tenants"];
+const appPages = ["/dashboard", "/users", "/users/all", "/users/invitations", "/roles", "/permissions", "/access-matrix", "/sessions", "/access-requests", "/access-reviews", "/audit", "/security-events", "/profile", "/profile?tab=security", "/settings", "/admin/settings", "/admin/email", "/admin/tenants", "/setup/locations", "/setup/teams", "/setup/calendars", "/setup/catalog", "/requests", "/requests/new", "/tickets", "/setup/sla", "/setup/assignment-rules", "/approvals", "/notifications", "/notifications/settings", "/setup/approvals", "/reports", "/reports/sla", "/setup/start", "/admin/retention", "/profile?tab=privacy", "/help", "/admin/email-wording", "/assets", "/setup/asset-types", "/assets/import", "/assets/labels", "/work-orders", "/vendors", "/maintenance", "/maintenance/compliance", "/reports/csat", "/kb", "/costs", "/costs/budgets", "/costs/centers", "/admin/inbound-email", "/admin/integrations", "/setup/checklists"];
 const widths = [1440, 1366, 1024, 768, 390, 375];
 
 async function axe(page: import("@playwright/test").Page, name: string) {

@@ -23,7 +23,11 @@ public static class Seeder
             db.Tenants.Add(new Tenant { Id = Tenant.DefaultId, Slug = "default", Name = "Default organisation", IsPlatform = true, CreatedAt = now });
         await db.SaveChangesAsync(ct);
 
-        foreach (var tenantId in await db.Tenants.Select(t => t.Id).ToListAsync(ct)) await SeedSystemRolesAsync(db, tenantId, now, ct);
+        foreach (var tenantId in await db.Tenants.Select(t => t.Id).ToListAsync(ct))
+        {
+            await SeedSystemRolesAsync(db, tenantId, now, ct);
+            await AnnabaDigital.Application.Helpdesk.HelpdeskDefaults.SeedAsync(db, tenantId, now, ct);
+        }
 
         foreach (var (key, value) in SecuritySettings.Defaults)
         {

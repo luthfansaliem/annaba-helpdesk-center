@@ -12,7 +12,12 @@ namespace AnnabaDigital.Application.Profile;
 /// </summary>
 public sealed class AccountExportService(IAppDb db, IClock clock, SettingsProvider settings, AuditWriter audit)
 {
-    public const int MaxSessions = 200, MaxActivity = 1000;
+    public const int MaxSessions = 200, MaxActivity = 1000, MaxTickets = 1000, MaxComments = 2000, MaxFiles = 1000;
+
+    private static System.Text.Json.JsonElement? Answers(string json)
+    {
+        try { return System.Text.Json.JsonDocument.Parse(json).RootElement.Clone(); } catch (System.Text.Json.JsonException) { return null; }
+    }
 
     public async Task<object> ExportAsync(SessionPrincipal who, ClientInfo client, CancellationToken ct = default)
     {
@@ -33,7 +38,16 @@ public sealed class AccountExportService(IAppDb db, IClock clock, SettingsProvid
         var closures = await db.AccountClosureRequests.AsNoTracking().Where(r => r.UserId == id).OrderByDescending(r => r.RequestedAt)
             .Select(r => new { Status = r.Status.ToString(), r.Reason, r.RequestedAt, r.ExecuteAfter, r.CompletedAt }).ToListAsync(ct);
 
-        audit.Record("account.export", "user", id.ToString(), Outcome.Success, client, id, who.Email, new Dictionary<string, string> { ["sessions"] = sessions.Count.ToString(), ["activity"] = activity.Count.ToString() });
+        // the requests the person made, what they wrote on tickets (public comments only: internal notes are staff's, not theirs to take), and the files they attached
+        var tickets = await db.Tickets.AsNoTracking().Where(t => t.RequesterId == id).OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id).Take(MaxTickets)
+            .Select(t => new { t.Number, t.ServiceName, t.Subject, t.Description, t.AnswersJson, Status = t.Status.ToString(), Priority = t.Priority.ToString(), t.CreatedAt, t.ResolvedAt, t.ClosedAt, t.ResolutionNote, t.CancelReason, t.AnonymisedAt }).ToListAsync(ct);
+        var ticketCount = await db.Tickets.CountAsync(t => t.RequesterId == id, ct);
+        var comments = await db.TicketEvents.AsNoTracking().Where(e => e.ActorId == id && e.Kind == TicketEventKind.Comment && !e.Internal).OrderByDescending(e => e.CreatedAt).Take(MaxComments)
+            .Select(e => new { Ticket = db.Tickets.Where(t => t.Id == e.TicketId).Select(t => t.Number).FirstOrDefault(), e.CreatedAt, e.Body }).ToListAsync(ct);
+        var files = await db.Attachments.AsNoTracking().Where(a => a.UploadedById == id && a.DeletedAt == null).OrderByDescending(a => a.CreatedAt).Take(MaxFiles)
+            .Select(a => new { Ticket = db.Tickets.Where(t => t.Id == a.TicketId).Select(t => t.Number).FirstOrDefault(), a.FileName, a.ContentType, a.Size, a.CreatedAt }).ToListAsync(ct);
+
+        audit.Record("account.export", "user", id.ToString(), Outcome.Success, client, id, who.Email, new Dictionary<string, string> { ["sessions"] = sessions.Count.ToString(), ["activity"] = activity.Count.ToString(), ["tickets"] = tickets.Count.ToString(), ["comments"] = comments.Count.ToString() });
         await db.SaveChangesAsync(ct);
         return new
         {
@@ -44,6 +58,12 @@ public sealed class AccountExportService(IAppDb db, IClock clock, SettingsProvid
             roles,
             security = new { twoStepVerification = hasMfa, passwordChangedAt = cred, singleSignOnProviders = sso },
             sessions, activity, accessRequests = requests, closureRequests = closures,
+            helpdesk = new
+            {
+                requestsTotal = ticketCount, requestsIncluded = tickets.Count,
+                requests = tickets.Select(t => new { t.Number, service = t.ServiceName, t.Subject, t.Description, answers = Answers(t.AnswersJson), t.Status, t.Priority, t.CreatedAt, t.ResolvedAt, t.ClosedAt, t.ResolutionNote, t.CancelReason, contentRemovedAt = t.AnonymisedAt }),
+                comments, files,
+            },
         };
     }
 }

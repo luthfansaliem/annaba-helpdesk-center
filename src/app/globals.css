@@ -476,3 +476,28 @@ a.hero-chip:hover{filter:brightness(.96)}
 .lang-switch button{padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;color:var(--ink-mid)}
 .lang-switch button[aria-pressed=true]{background:var(--blue-50);color:var(--blue-ink)}
 .lang-switch button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+
+/* ---- asset labels (R2-2): a sheet of QR labels prints without the app around it */
+.label-sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.asset-label{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;border:1px dashed var(--line);border-radius:8px;padding:10px;background:#fff;color:#111;break-inside:avoid;page-break-inside:avoid}
+.asset-label img{width:96px;height:96px}
+.asset-label b{font-size:14px;letter-spacing:.02em}
+.asset-label small{display:block;color:#333;line-height:1.3}
+@media print{
+  .sidebar,.topbar,.no-print,.backdrop,.support-bar{display:none !important}
+  .shell,.shell.compact{display:block}
+  .main{padding:0}
+  body{background:#fff}
+  .label-sheet{grid-template-columns:repeat(3,1fr);gap:4mm}
+  .asset-label{border:1px solid #999}
+}
+
+/* knowledge base (R2-7) */
+.kb-grid{display:grid;gap:16px;grid-template-columns:minmax(0,3fr) minmax(260px,1fr);align-items:start}
+@media (max-width:900px){.kb-grid{grid-template-columns:minmax(0,1fr)}}
+.kb-body{line-height:1.6;overflow-wrap:anywhere}
+.kb-body h2{font-size:1.25rem;margin:1.2em 0 .4em}.kb-body h3{font-size:1.1rem;margin:1em 0 .4em}.kb-body h4{font-size:1rem;margin:1em 0 .3em}
+.kb-body p,.kb-body ul,.kb-body ol,.kb-body pre,.kb-body blockquote{margin:0 0 .8em}
+.kb-body pre{background:var(--surface-2,#f3f4f6);padding:10px;border-radius:6px;overflow:auto}
+.kb-body code{font-family:ui-monospace,monospace;font-size:.92em}
+.kb-body blockquote{border-left:3px solid var(--border,#d1d5db);padding-left:12px;color:inherit;opacity:.9}

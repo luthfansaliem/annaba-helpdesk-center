@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useEffect, useState } from "react";
+import { Suspense, use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Save } from "lucide-react";
@@ -11,6 +11,7 @@ import { Avatar, avatarUrl } from "@/components/ui/avatar";
 import { Tabs } from "@/components/ui/tabs";
 import { RowMenu } from "@/components/ui/menu";
 import { Field, TextInput } from "@/components/ui/field";
+import { PersonPicker } from "@/components/forms/dynamic-form";
 import { UserStatusBadge, OutcomeBadge } from "@/components/ui/status";
 import { ConfirmOverlay, type ConfirmSpec } from "@/components/ui/confirm";
 import { DataTable, type Column } from "@/components/data/data-table";
@@ -18,7 +19,7 @@ import { RolePicker } from "@/components/iam/role-picker";
 import { QueryBoundary } from "@/components/query-boundary";
 import { Require, Can } from "@/components/page-guard";
 import { del, get, patch, post, put } from "@/lib/api/client";
-import type { ActivityItem, RoleListItem, SessionInfo, UserDetail } from "@/lib/api/types";
+import type { ActivityItem, PortalPerson, RoleListItem, SessionInfo, UserDetail } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@/lib/hooks";
 import { fmtDateTime, rel } from "@/lib/format";
@@ -44,6 +45,30 @@ function Sessions({ id, canRevoke }: { id: string; canRevoke: boolean }) {
 function Activity({ id }: { id: string }) {
   const q = useQuery(() => get<ActivityItem[]>(`/api/users/${id}/activity`), [id]);
   return <QueryBoundary q={q} rows={3}>{(rows) => rows.length ? <ul className="mini-list">{rows.map((a) => <li key={a.id}><div><strong>{a.action}</strong><small>{a.target} · {fmtDateTime(a.ts)}{a.actor ? t(" · by {actor}", { actor: a.actor }) : ""}</small></div><OutcomeBadge outcome={a.outcome} /></li>)}</ul> : <p className="tab-placeholder">{t("No activity recorded.")}</p>}</QueryBoundary>;
+}
+
+/** Who this person reports to. An approval step can ask for "the requester's manager", so this is what makes that step work. */
+function ManagerField({ user, canEdit, onChanged }: { user: UserDetail; canEdit: boolean; onChanged: () => void }) {
+  const run = useRun(); const [pick, setPick] = useState(""); const [err, setErr] = useState("");
+  const search = useCallback(async (q: string) => (await get<PortalPerson[]>("/api/portal/people", { q })).filter((p) => p.id !== user.id).map((p) => ({ value: p.id, label: p.department ? `${p.name} · ${p.department}` : p.name })), [user.id]);
+  async function save(managerId: string | null) {
+    setErr("");
+    const r = await run(() => put<UserDetail>(`/api/users/${user.id}/manager`, { managerId }), managerId ? t("Manager set.") : t("Manager cleared."), { silent: true });
+    if (!r.ok) { setErr(r.fields?.managerId ?? r.error); return; }
+    setPick(""); onChanged();
+  }
+  return (
+    <div className="full" style={{ gridColumn: "1/-1" }}>
+      <p style={{ margin: "0 0 6px" }}><b>{t("Reports to")}:</b> {user.managerName ?? t("Nobody set")}</p>
+      {canEdit && <div className="stack" style={{ gap: 6 }}>
+        <Field label={t("Choose a manager")} htmlFor="p-manager" error={err}><PersonPicker id="p-manager" value={pick} onChange={(v) => setPick(v ?? "")} search={search} /></Field>
+        <span className="row" style={{ gap: 8 }}>
+          <Button type="button" disabled={!pick} onClick={() => save(pick)}>{t("Set manager")}</Button>
+          {user.managerId && <Button type="button" variant="danger-outline" onClick={() => save(null)}>{t("Clear manager")}</Button>}
+        </span>
+      </div>}
+    </div>
+  );
 }
 
 function Detail({ id }: { id: string }) {
@@ -110,6 +135,7 @@ function Detail({ id }: { id: string }) {
                 <Field label={t("Phone")} htmlFor="p-phone"><TextInput id="p-phone" disabled={!can("users.update")} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
                 <Field label={t("Department")} htmlFor="p-dep"><TextInput id="p-dep" disabled={!can("users.update")} value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} /></Field>
                 <Field label={t("Job title")} htmlFor="p-title" full><TextInput id="p-title" disabled={!can("users.update")} value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} /></Field>
+                <ManagerField user={u} canEdit={can("users.update")} onChanged={q.reload} />
                 <Can perm="users.update"><div className="full" style={{ gridColumn: "1/-1", display: "flex", justifyContent: "flex-end" }}><Button variant="primary" type="submit"><Save size={15} /> {t("Save changes")}</Button></div></Can>
               </form>
             )}

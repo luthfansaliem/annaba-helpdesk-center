@@ -37,6 +37,8 @@ public static class UserEndpoints
 
         g.MapGet("/{id:guid}", async (Guid id, UserAdminService svc, HttpContext ctx) => Results.Ok(await svc.GetAsync(id, ctx.RequestAborted))).RequirePermission(Permissions.UsersRead);
 
+        g.MapPut("/{id:guid}/manager", async (Guid id, SetManagerRequest body, UserAdminService svc, HttpContext ctx)
+            => Results.Ok(await svc.SetManagerAsync(id, body.ManagerId, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.UsersUpdate);
         g.MapPatch("/{id:guid}", async (Guid id, UpdateUserRequest body, UserAdminService svc, HttpContext ctx)
             => Results.Ok(await svc.UpdateAsync(id, body, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.UsersUpdate);
 

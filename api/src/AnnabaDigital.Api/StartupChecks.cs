@@ -31,6 +31,9 @@ public static class StartupChecks
         }
         else problems.Add("Email:Provider must be 'smtp' or 'resend' (the console sender does not deliver mail).");
         if (mail.LogBodies) problems.Add("Email:LogBodies must be false (it would write one-time links to the logs).");
+        var storage = sp.GetRequiredService<IOptions<AnnabaDigital.Infrastructure.StorageOptions>>().Value;
+        if (!Path.IsPathRooted(storage.Path)) problems.Add("Storage:Path must be an absolute path on a persistent volume (relative paths vanish with the container).");
+        if (string.IsNullOrWhiteSpace(storage.ClamAvHost) && !storage.AllowUnscanned) problems.Add("Storage:ClamAvHost must point to a ClamAV daemon, or set Storage:AllowUnscanned=true to accept uploads without a virus scan on purpose.");
         if (api.SeedDevUsers) problems.Add("Api:SeedDevUsers must be false in Production.");
         if (problems.Count > 0) throw new InvalidOperationException("Insecure production configuration: " + string.Join(" ", problems));
     }

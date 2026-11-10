@@ -6,6 +6,8 @@ public sealed record AllowLocked;
 public sealed record AllowMfaPending;
 /// <summary>Endpoint metadata: reachable while org policy requires MFA and the user has not enrolled yet.</summary>
 public sealed record AllowMfaEnrollment;
+/// <summary>Endpoint metadata: called by another server, not a browser (no Origin header, no cookie session); it authenticates with a secret in the URL or a key, so the Origin check does not apply.</summary>
+public sealed record MachineEndpoint;
 
 public static class Redirects
 {

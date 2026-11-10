@@ -73,11 +73,12 @@ public sealed class SmtpEmailTests
         await Assert.ThrowsAnyAsync<Exception>(() => Sender(port).SendAsync(new EmailMessage("a@b.co", "s", "t", "h")));
     }
 
-    private static void Validate(EmailOptions mail)
+    private static void Validate(EmailOptions mail, AnnabaDigital.Infrastructure.StorageOptions? storage = null)
     {
         var sp = new ServiceCollection()
             .AddSingleton(Options.Create(new ApiOptions { Origin = "https://app.example.com", ProxyKey = new string('p', 40) }))
             .AddSingleton(Options.Create(new SecurityOptions { CsrfKey = new string('c', 40), PasswordPepper = new string('x', 40), EncryptionKeys = new() { ["1"] = Convert.ToBase64String(new byte[32].Select((_, i) => (byte)(i + 7)).ToArray()) } }))
+            .AddSingleton(Options.Create(storage ?? new AnnabaDigital.Infrastructure.StorageOptions { Path = Path.GetFullPath("files"), ClamAvHost = "clamav" }))
             .AddSingleton(Options.Create(mail)).BuildServiceProvider();
         StartupChecks.Validate(sp, new TestEnv());
     }
@@ -103,4 +104,21 @@ public sealed class SmtpEmailTests
     [InlineData("resend", null, "starttls", null)]
     public void Production_rejects_unsafe_or_incomplete_email_configuration(string provider, string? host, string security, string? user)
         => Assert.Throws<InvalidOperationException>(() => Validate(new EmailOptions { Provider = provider, SmtpHost = host, SmtpSecurity = security, SmtpUsername = user }));
+
+    private static readonly EmailOptions GoodMail = new() { Provider = "resend", ResendApiKey = "re_x" };
+
+    [Fact]
+    public void Production_accepts_files_on_an_absolute_path_with_a_scanner_or_an_explicit_no_scan_decision()
+    {
+        var abs = Path.GetFullPath("files");
+        Validate(GoodMail, new AnnabaDigital.Infrastructure.StorageOptions { Path = abs, ClamAvHost = "clamav" });
+        Validate(GoodMail, new AnnabaDigital.Infrastructure.StorageOptions { Path = abs, AllowUnscanned = true });
+    }
+
+    [Theory]
+    [InlineData("data/files", "clamav", false)]       // relative path: lost with the container
+    [InlineData("ABS", null, false)]                   // no scanner and no decision to go without
+    [InlineData("ABS", " ", false)]
+    public void Production_rejects_uploads_without_a_persistent_path_or_a_scanning_decision(string path, string? clam, bool allow)
+        => Assert.Throws<InvalidOperationException>(() => Validate(GoodMail, new AnnabaDigital.Infrastructure.StorageOptions { Path = path == "ABS" ? Path.GetFullPath("files") : path, ClamAvHost = clam, AllowUnscanned = allow }));
 }

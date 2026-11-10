@@ -10,6 +10,7 @@ test("add user → invitation e-mail → accept → new user signs in with a lea
   const dlg = page.getByRole("dialog", { name: "Add User" });
   await dlg.getByLabel("Full name").fill("Invited Person");
   await dlg.getByRole("textbox", { name: /^Email/ }).fill(email);
+  await expect(dlg.getByRole("checkbox", { name: /^User Self-service/ })).toBeChecked();   // the default role is chosen once the role list has loaded; sending earlier would say "Select at least one role"
   await dlg.getByRole("button", { name: /send invitation/i }).click();
   await reauthIfAsked(page);
   await expect(page.getByText(/invitation sent/i).first()).toBeVisible();

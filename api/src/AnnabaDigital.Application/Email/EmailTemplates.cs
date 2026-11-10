@@ -91,6 +91,43 @@ public static class EmailTemplates
 
     private static string Clip(string s, int max) => s.Length <= max ? s : s[..max] + "…";
 
+    // ---- helpdesk (tickets, approvals, SLA). Links go to the app; the approval mail also carries a one-time link that decides without signing in.
+    /// <summary>For the notifications a person has chosen to also receive by e-mail and that have no wording of their own: the title and text of the in-app message, plus a link.</summary>
+    public static EmailMessage Notification(string to, string name, string title, string? body, string link) =>
+        Bi(to, name, link,
+            new(Clip(title, 150), body is null ? Clip(title, 150) : Clip(body, 300), "Open it", "You chose to receive this by e-mail. You can change that in Notifications → Settings."),
+            new(Clip(title, 150), body is null ? Clip(title, 150) : Clip(body, 300), "Buka", "Anda memilih menerima ini lewat email. Anda dapat mengubahnya di Notifikasi → Pengaturan."));
+
+    public static EmailMessage TicketAssigned(string to, string name, string number, string subject, string link) =>
+        Bi(to, name, link,
+            new($"Ticket {number} was assigned to you", $"\"{Clip(subject, 120)}\" is waiting for you.", "Open the ticket", "You receive this because you work tickets."),
+            new($"Tiket {number} ditugaskan kepada Anda", $"\"{Clip(subject, 120)}\" menunggu Anda.", "Buka tiket", "Anda menerima ini karena Anda mengerjakan tiket."));
+
+    public static EmailMessage TicketResolved(string to, string name, string number, string subject, string link) =>
+        Bi(to, name, link,
+            new($"Your request {number} was resolved", $"\"{Clip(subject, 120)}\" has been resolved. Please confirm it is solved and tell us how it went (1–5), or reopen it if it is not. It closes by itself after a few days.", "Review the result", "Reply on the ticket if you have questions."),
+            new($"Permintaan {number} Anda telah diselesaikan", $"\"{Clip(subject, 120)}\" telah diselesaikan. Mohon konfirmasi bahwa sudah beres dan beri penilaian (1–5), atau buka kembali jika belum. Tiket tertutup sendiri setelah beberapa hari.", "Lihat hasilnya", "Balas di tiket jika ada pertanyaan."));
+
+    public static EmailMessage TicketReplied(string to, string name, string number, string subject, string by, string link) =>
+        Bi(to, name, link,
+            new($"New reply on {number}", $"{by} replied on \"{Clip(subject, 120)}\".", "Read the reply", "You receive this because you are the requester."),
+            new($"Balasan baru di {number}", $"{by} membalas \"{Clip(subject, 120)}\".", "Baca balasan", "Anda menerima ini karena Anda peminta."));
+
+    public static EmailMessage ApprovalNeeded(string to, string name, string requester, string number, string subject, string service, string decideLink) =>
+        Bi(to, name, decideLink,
+            new($"Approval needed: {number}", $"{requester} asked for \"{Clip(service, 80)}\": \"{Clip(subject, 120)}\". Your decision is needed before work can start.", "Review and decide", "This link is just for you, works once and expires in 7 days. You can also decide from Approvals in the app."),
+            new($"Perlu persetujuan: {number}", $"{requester} meminta \"{Clip(service, 80)}\": \"{Clip(subject, 120)}\". Keputusan Anda diperlukan sebelum pekerjaan dimulai.", "Tinjau dan putuskan", "Tautan ini khusus untuk Anda, hanya berlaku sekali, dan kedaluwarsa dalam 7 hari. Anda juga bisa memutuskan dari menu Persetujuan di aplikasi."));
+
+    public static EmailMessage ApprovalDecided(string to, string name, bool approved, string number, string subject, string? comment, string link) =>
+        Bi(to, name, link,
+            new(approved ? $"{number} was approved" : $"{number} was rejected", $"Your request \"{Clip(subject, 120)}\" was {(approved ? "approved and is now with the team" : "rejected")}.{(string.IsNullOrWhiteSpace(comment) ? "" : $" Comment: {Clip(comment, 300)}")}", "Open the request", "Reply on the request if you have questions."),
+            new(approved ? $"{number} disetujui" : $"{number} ditolak", $"Permintaan Anda \"{Clip(subject, 120)}\" {(approved ? "disetujui dan kini ditangani tim" : "ditolak")}.{(string.IsNullOrWhiteSpace(comment) ? "" : $" Komentar: {Clip(comment, 300)}")}", "Buka permintaan", "Balas di permintaan jika ada pertanyaan."));
+
+    public static EmailMessage SlaBreached(string to, string name, string number, string subject, string link) =>
+        Bi(to, name, link,
+            new($"SLA breached: {number}", $"\"{Clip(subject, 120)}\" has passed its service-level target.", "Open the ticket", "You receive this because the ticket is yours or you supervise tickets."),
+            new($"SLA terlampaui: {number}", $"\"{Clip(subject, 120)}\" telah melewati target tingkat layanan.", "Buka tiket", "Anda menerima ini karena tiket ini milik Anda atau Anda menyupervisi tiket."));
+
     public static EmailMessage AccessRequestSubmitted(string to, string name, string requester, string role, string reason, string link) =>
         Bi(to, name, link,
             new("Access request waiting for your decision", $"{requester} asked for the \"{role}\" role. Reason: {Clip(reason, 300)}", "Review the request", "You receive this because you can assign roles. Requests from you are decided by another administrator."),

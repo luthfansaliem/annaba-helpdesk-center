@@ -116,16 +116,16 @@ public sealed class OutboxEmailQueue(IServiceScopeFactory scopes, ILogger<Outbox
             var db = scope.ServiceProvider.GetRequiredService<AnnabaDigitalDbContext>();
             var now = DateTimeOffset.UtcNow;
             var to = message.To.Trim().ToLowerInvariant();
-            if (message.Localize is not null)
-            {
-                // the recipient's own language if they have an account, else the sender's hint, else English
-                var lang = db.Users.IgnoreQueryFilters().Where(u => u.Email == to).Select(u => u.Profile != null ? u.Profile.Language : null).FirstOrDefault() ?? message.Lang ?? "en";
-                message = message.Localize(lang) ?? message;
-            }
+            // the recipient's own language if they have an account, else the sender's hint, else English
+            var lang = db.Users.IgnoreQueryFilters().Where(u => u.Email == to).Select(u => u.Profile != null ? u.Profile.Language : null).FirstOrDefault() ?? message.Lang ?? "en";
+            if (message.Localize is not null) message = message.Localize(lang) ?? message;
             var tid = tenantId
                 ?? db.Users.IgnoreQueryFilters().Where(u => u.Email == to).Select(u => (Guid?)u.TenantId).FirstOrDefault()
                 ?? db.Invitations.IgnoreQueryFilters().Where(i => i.Email == to).OrderByDescending(i => i.CreatedAt).Select(i => (Guid?)i.TenantId).FirstOrDefault()
                 ?? Tenant.DefaultId;
+            // the organisation's own wording (subject prefix, closing paragraph, sign-off name), in the recipient's language
+            var wording = db.EmailWordings.IgnoreQueryFilters().AsNoTracking().FirstOrDefault(x => x.TenantId == tid);
+            message = AnnabaDigital.Application.Email.EmailWordingService.Apply(message, wording, lang);
             db.OutboxEmails.Add(new OutboxEmail { TenantId = tid, ToAddress = message.To, Subject = message.Subject, Text = message.Text, Html = message.Html, CreatedAt = now, NextAttemptAt = now });
             db.SaveChanges();
             _signal.Release();
@@ -285,6 +285,8 @@ public sealed class RetentionWorker(IServiceScopeFactory scopes, IOptions<Retent
                 using var scope = scopes.CreateScope();
                 var r = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Monitoring.MonitoringService>().PurgeAsync(stoppingToken);
                 log.LogInformation("Retention purge done: audit={Audit} security={Security} tokens={Tokens} sessions={Sessions} buckets={Buckets}", r.Audit, r.Security, r.Tokens, r.Sessions, r.RateBuckets);
+                var h = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.RetentionService>().RunDueAsync(stoppingToken);
+                if (h.Tickets + h.Files + h.Notifications > 0) log.LogInformation("Helpdesk retention done: tickets={Tickets} files={Files} notifications={Notifications} more={More}", h.Tickets, h.Files, h.Notifications, h.More);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
             catch (Exception e) { log.LogError(e, "Retention purge failed"); }
@@ -317,6 +319,67 @@ public sealed class AccessReviewScheduler(IServiceScopeFactory scopes, IOptions<
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
             catch (Exception e) { log.LogError(e, "Scheduled access review run failed"); }
+            try { await Task.Delay(TimeSpan.FromMinutes(Math.Max(1, options.Value.IntervalMinutes)), stoppingToken); } catch (OperationCanceledException) { return; }
+        }
+    }
+}
+
+public sealed class SlaWorkerOptions
+{
+    public bool Enabled { get; set; } = true;
+    public int IntervalMinutes { get; set; } = 5;
+    public int StartupDelaySeconds { get; set; } = 60;
+}
+
+/// <summary>Re-reads every running ticket's SLA clock so states and escalations stay current even when nobody touches the ticket. Idempotent; safe with several instances.</summary>
+public sealed class SlaWorker(IServiceScopeFactory scopes, IOptions<SlaWorkerOptions> options, ILogger<SlaWorker> log) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!options.Value.Enabled) return;
+        try { await Task.Delay(TimeSpan.FromSeconds(options.Value.StartupDelaySeconds), stoppingToken); } catch (OperationCanceledException) { return; }
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                using var scope = scopes.CreateScope();
+                var n = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.SlaService>().RunDueAsync(stoppingToken);
+                if (n > 0) log.LogInformation("SLA states updated: {Count}", n);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
+            catch (Exception e) { log.LogError(e, "SLA check failed"); }
+            try { await Task.Delay(TimeSpan.FromMinutes(Math.Max(1, options.Value.IntervalMinutes)), stoppingToken); } catch (OperationCanceledException) { return; }
+        }
+    }
+}
+
+/// <summary>Closes tickets whose resolution was neither confirmed nor reopened within the waiting period. Uses the same switches as the review scheduler (<c>ReviewScheduler__*</c>).</summary>
+public sealed class TicketAutoCloseWorker(IServiceScopeFactory scopes, IOptions<ReviewSchedulerOptions> options, ILogger<TicketAutoCloseWorker> log) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!options.Value.Enabled) return;
+        try { await Task.Delay(TimeSpan.FromSeconds(options.Value.StartupDelaySeconds + 45), stoppingToken); } catch (OperationCanceledException) { return; }
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                using var scope = scopes.CreateScope();
+                var n = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.TicketService>().AutoCloseDueAsync(stoppingToken);
+                if (n > 0) log.LogInformation("Tickets closed automatically: {Count}", n);
+                var purged = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.AttachmentService>().PurgeOrphansAsync(stoppingToken);
+                if (purged > 0) log.LogInformation("Unclaimed uploads removed: {Count}", purged);
+                var warranties = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.AssetService>().RunWarrantyRemindersAsync(stoppingToken);
+                if (warranties > 0) log.LogInformation("Asset warranty reminders sent: {Count}", warranties);
+                var contracts = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.VendorService>().RunContractRemindersAsync(stoppingToken);
+                if (contracts > 0) log.LogInformation("Vendor contract reminders sent: {Count}", contracts);
+                var visits = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.MaintenanceService>().RunDueAsync(stoppingToken);
+                if (visits > 0) log.LogInformation("Planned maintenance visits made: {Count}", visits);
+                var budgets = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.CostService>().RunBudgetAlertsAsync(stoppingToken);
+                if (budgets > 0) log.LogInformation("Budget alerts sent: {Count}", budgets);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
+            catch (Exception e) { log.LogError(e, "Ticket auto-close run failed"); }
             try { await Task.Delay(TimeSpan.FromMinutes(Math.Max(1, options.Value.IntervalMinutes)), stoppingToken); } catch (OperationCanceledException) { return; }
         }
     }

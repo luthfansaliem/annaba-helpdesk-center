@@ -331,6 +331,680 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.ToTable("account_closure_requests", (string)null);
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ApiIdempotency", b =>
+                {
+                    b.Property<Guid>("ApiKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("api_key_id");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("key");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.HasKey("ApiKeyId", "Key")
+                        .HasName("pk_api_idempotency");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_api_idempotency_tenant_id");
+
+                    b.HasIndex("TicketId")
+                        .HasDatabaseName("ix_api_idempotency_ticket_id");
+
+                    b.ToTable("api_idempotency", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ApiKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("prefix");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("Scopes")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("scopes");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_api_keys");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_api_keys_tenant_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_api_keys_token_hash");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_api_keys_user_id");
+
+                    b.ToTable("api_keys", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ApprovalDelegation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DelegateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("delegate_id");
+
+                    b.Property<DateTimeOffset>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("note");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_approval_delegations");
+
+                    b.HasIndex("DelegateId")
+                        .HasDatabaseName("ix_approval_delegations_delegate_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_approval_delegations_user_id");
+
+                    b.HasIndex("TenantId", "DelegateId")
+                        .HasDatabaseName("ix_approval_delegations_tenant_id_delegate_id");
+
+                    b.HasIndex("TenantId", "UserId", "StartsAt")
+                        .HasDatabaseName("ix_approval_delegations_tenant_id_user_id_starts_at");
+
+                    b.ToTable("approval_delegations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_approval_delegations_period", "ends_at > starts_at");
+
+                            t.HasCheckConstraint("ck_approval_delegations_self", "user_id <> delegate_id");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ApprovalPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("FallbackUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("fallback_user_id");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<string>("StepsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("steps_json");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_approval_policies");
+
+                    b.HasIndex("FallbackUserId")
+                        .HasDatabaseName("ix_approval_policies_fallback_user_id");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("ix_approval_policies_service_id");
+
+                    b.HasIndex("TenantId", "ServiceId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_approval_policies_tenant_id_service_id")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.ToTable("approval_policies", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Asset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AssetTypeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_type_id");
+
+                    b.Property<Guid?>("AssignedToId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_to_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("department");
+
+                    b.Property<string>("FieldsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("fields_json");
+
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<decimal?>("PurchaseCost")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("purchase_cost");
+
+                    b.Property<DateOnly?>("PurchaseDate")
+                        .HasColumnType("date")
+                        .HasColumnName("purchase_date");
+
+                    b.Property<string>("RetireReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("retire_reason");
+
+                    b.Property<DateTimeOffset?>("RetiredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retired_at");
+
+                    b.Property<string>("Serial")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("serial");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Tag")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("tag");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VendorName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("vendor_name");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<DateOnly?>("WarrantyEnd")
+                        .HasColumnType("date")
+                        .HasColumnName("warranty_end");
+
+                    b.Property<int>("WarrantyNotice")
+                        .HasColumnType("integer")
+                        .HasColumnName("warranty_notice");
+
+                    b.HasKey("Id")
+                        .HasName("pk_assets");
+
+                    b.HasIndex("AssetTypeId")
+                        .HasDatabaseName("ix_assets_asset_type_id");
+
+                    b.HasIndex("AssignedToId")
+                        .HasDatabaseName("ix_assets_assigned_to_id");
+
+                    b.HasIndex("LocationId")
+                        .HasDatabaseName("ix_assets_location_id");
+
+                    b.HasIndex("TenantId", "AssetTypeId")
+                        .HasDatabaseName("ix_assets_tenant_id_asset_type_id");
+
+                    b.HasIndex("TenantId", "AssignedToId")
+                        .HasDatabaseName("ix_assets_tenant_id_assigned_to_id");
+
+                    b.HasIndex("TenantId", "LocationId")
+                        .HasDatabaseName("ix_assets_tenant_id_location_id");
+
+                    b.HasIndex("TenantId", "Tag")
+                        .IsUnique()
+                        .HasDatabaseName("ix_assets_tenant_id_tag");
+
+                    b.HasIndex("TenantId", "WarrantyEnd")
+                        .HasDatabaseName("ix_assets_tenant_id_warranty_end")
+                        .HasFilter("retired_at IS NULL AND warranty_end IS NOT NULL");
+
+                    b.ToTable("assets", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_assets_cost", "purchase_cost IS NULL OR purchase_cost >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.AssetCounter", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("Last")
+                        .HasColumnType("integer")
+                        .HasColumnName("last");
+
+                    b.HasKey("TenantId")
+                        .HasName("pk_asset_counters");
+
+                    b.ToTable("asset_counters", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_asset_counters_last", "last >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.AssetEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<string>("ActorLabel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_label");
+
+                    b.Property<Guid>("AssetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<string>("Body")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("body");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_asset_events");
+
+                    b.HasIndex("ActorId")
+                        .HasDatabaseName("ix_asset_events_actor_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_asset_events_tenant_id");
+
+                    b.HasIndex("AssetId", "CreatedAt")
+                        .HasDatabaseName("ix_asset_events_asset_id_created_at");
+
+                    b.ToTable("asset_events", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.AssetType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("FieldsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("fields_json");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_asset_types");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_asset_types_tenant_id_name")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.ToTable("asset_types", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.AssignmentRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Priority")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("priority");
+
+                    b.Property<Guid?>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<string>("Strategy")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("strategy");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_assignment_rules");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("ix_assignment_rules_category_id");
+
+                    b.HasIndex("LocationId")
+                        .HasDatabaseName("ix_assignment_rules_location_id");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("ix_assignment_rules_service_id");
+
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("ix_assignment_rules_team_id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_assignment_rules_tenant_id_name")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.HasIndex("TenantId", "Position")
+                        .HasDatabaseName("ix_assignment_rules_tenant_id_position");
+
+                    b.ToTable("assignment_rules", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Attachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("sha256");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size");
+
+                    b.Property<string>("Stage")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("stage");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid?>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<Guid>("UploadedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by_id");
+
+                    b.Property<Guid?>("WorkOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_attachments");
+
+                    b.HasIndex("TicketId")
+                        .HasDatabaseName("ix_attachments_ticket_id");
+
+                    b.HasIndex("UploadedById")
+                        .HasDatabaseName("ix_attachments_uploaded_by_id");
+
+                    b.HasIndex("WorkOrderId")
+                        .HasDatabaseName("ix_attachments_work_order_id")
+                        .HasFilter("work_order_id IS NOT NULL");
+
+                    b.HasIndex("TenantId", "CreatedAt")
+                        .HasDatabaseName("ix_attachments_tenant_id_created_at")
+                        .HasFilter("ticket_id IS NULL AND deleted_at IS NULL");
+
+                    b.ToTable("attachments", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_attachments_size", "size > 0");
+                        });
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.AuditEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -463,6 +1137,374 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Budget", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AlertLevel")
+                        .HasColumnType("integer")
+                        .HasColumnName("alert_level");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("note");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("scope");
+
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scope_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id")
+                        .HasName("pk_budgets");
+
+                    b.HasIndex("TenantId", "Year")
+                        .HasDatabaseName("ix_budgets_tenant_id_year");
+
+                    b.HasIndex("TenantId", "Scope", "ScopeId", "Year")
+                        .IsUnique()
+                        .HasDatabaseName("ix_budgets_tenant_id_scope_scope_id_year");
+
+                    b.ToTable("budgets", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_budgets_amount", "amount > 0");
+
+                            t.HasCheckConstraint("ck_budgets_year", "year BETWEEN 2000 AND 2100");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.BusinessCalendar", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsAlwaysOpen")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_always_open");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_default");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("time_zone");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_business_calendars");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_business_calendars_tenant_id")
+                        .HasFilter("is_default AND archived_at IS NULL");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_business_calendars_tenant_id_name")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.ToTable("business_calendars", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CalendarHoliday", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CalendarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("calendar_id");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_holidays");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_calendar_holidays_tenant_id");
+
+                    b.HasIndex("CalendarId", "Date")
+                        .IsUnique()
+                        .HasDatabaseName("ix_calendar_holidays_calendar_id_date");
+
+                    b.ToTable("calendar_holidays", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CalendarPeriod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CalendarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("calendar_id");
+
+                    b.Property<int>("Day")
+                        .HasColumnType("integer")
+                        .HasColumnName("day");
+
+                    b.Property<int>("EndMinute")
+                        .HasColumnType("integer")
+                        .HasColumnName("end_minute");
+
+                    b.Property<int>("StartMinute")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_minute");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_periods");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_calendar_periods_tenant_id");
+
+                    b.HasIndex("CalendarId", "Day")
+                        .HasDatabaseName("ix_calendar_periods_calendar_id_day");
+
+                    b.ToTable("calendar_periods", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_calendar_periods_day", "day >= 0 AND day <= 6");
+
+                            t.HasCheckConstraint("ck_calendar_periods_range", "start_minute >= 0 AND end_minute <= 1440 AND end_minute > start_minute");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ChecklistTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ItemsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("items_json");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_checklist_templates");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_checklist_templates_tenant_id_name")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.ToTable("checklist_templates", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CostCenter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cost_centers");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_cost_centers_tenant_id_code");
+
+                    b.ToTable("cost_centers", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CostCenterPlace", b =>
+                {
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<Guid>("CostCenterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cost_center_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("LocationId")
+                        .HasName("pk_cost_center_places");
+
+                    b.HasIndex("CostCenterId")
+                        .HasDatabaseName("ix_cost_center_places_cost_center_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_cost_center_places_tenant_id");
+
+                    b.ToTable("cost_center_places", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CostSettings", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<decimal?>("LabourRatePerHour")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("labour_rate_per_hour");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("TenantId")
+                        .HasName("pk_cost_settings");
+
+                    b.ToTable("cost_settings", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_cost_settings_rate", "labour_rate_per_hour IS NULL OR labour_rate_per_hour >= 0");
+                        });
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.EmailVerificationToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -508,6 +1550,55 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.ToTable("email_verification_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.EmailWording", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("FooterEn")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("footer_en");
+
+                    b.Property<string>("FooterId")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("footer_id");
+
+                    b.Property<string>("SenderName")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("sender_name");
+
+                    b.Property<string>("SubjectPrefix")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("subject_prefix");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_email_wordings");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_email_wordings_tenant_id");
+
+                    b.ToTable("email_wordings", (string)null);
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.ExternalIdentity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -544,6 +1635,159 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_external_identities_provider_subject");
 
                     b.ToTable("external_identities", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.InboundMailbox", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("address");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("DefaultServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("default_service_id");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<string>("TokenHint")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("token_hint");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_inbound_mailboxes");
+
+                    b.HasIndex("DefaultServiceId")
+                        .HasDatabaseName("ix_inbound_mailboxes_default_service_id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_inbound_mailboxes_tenant_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_inbound_mailboxes_token_hash")
+                        .HasFilter("token_hash <> ''");
+
+                    b.ToTable("inbound_mailboxes", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.InboundMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("FromAddress")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("from_address");
+
+                    b.Property<Guid>("MailboxId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("mailbox_id");
+
+                    b.Property<string>("MessageId")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("message_id");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("outcome");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("subject");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid?>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_inbound_messages");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_inbound_messages_tenant_id");
+
+                    b.HasIndex("TicketId")
+                        .HasDatabaseName("ix_inbound_messages_ticket_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_inbound_messages_user_id");
+
+                    b.HasIndex("MailboxId", "MessageId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_inbound_messages_mailbox_id_message_id");
+
+                    b.HasIndex("MailboxId", "ReceivedAt")
+                        .HasDatabaseName("ix_inbound_messages_mailbox_id_received_at");
+
+                    b.HasIndex("MailboxId", "UserId", "ReceivedAt")
+                        .HasDatabaseName("ix_inbound_messages_mailbox_id_user_id_received_at");
+
+                    b.ToTable("inbound_messages", (string)null);
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.Invitation", b =>
@@ -638,6 +1882,670 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.ToTable("invitation_roles", (string)null);
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbArticle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("body");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<int>("Deflections")
+                        .HasColumnType("integer")
+                        .HasColumnName("deflections");
+
+                    b.Property<int>("LatestVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("latest_version");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<int>("PublishedVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("published_version");
+
+                    b.Property<DateOnly?>("ReviewBy")
+                        .HasColumnType("date")
+                        .HasColumnName("review_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("summary");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<int>("Views")
+                        .HasColumnType("integer")
+                        .HasColumnName("views");
+
+                    b.Property<string>("Visibility")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("visibility");
+
+                    b.HasKey("Id")
+                        .HasName("pk_kb_articles");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("ix_kb_articles_category_id");
+
+                    b.HasIndex("CreatedById")
+                        .HasDatabaseName("ix_kb_articles_created_by_id");
+
+                    b.HasIndex("TenantId", "Status", "UpdatedAt")
+                        .HasDatabaseName("ix_kb_articles_tenant_id_status_updated_at");
+
+                    b.ToTable("kb_articles", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbArticleService", b =>
+                {
+                    b.Property<Guid>("ArticleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("article_id");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("ArticleId", "ServiceId")
+                        .HasName("pk_kb_article_services");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("ix_kb_article_services_service_id");
+
+                    b.HasIndex("TenantId", "ServiceId")
+                        .HasDatabaseName("ix_kb_article_services_tenant_id_service_id");
+
+                    b.ToTable("kb_article_services", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbArticleVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ArticleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("article_id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("body");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer")
+                        .HasColumnName("number");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("summary");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id")
+                        .HasName("pk_kb_article_versions");
+
+                    b.HasIndex("CreatedById")
+                        .HasDatabaseName("ix_kb_article_versions_created_by_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_kb_article_versions_tenant_id");
+
+                    b.HasIndex("ArticleId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_kb_article_versions_article_id_number");
+
+                    b.ToTable("kb_article_versions", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_kb_categories");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_kb_categories_tenant_id_name")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.ToTable("kb_categories", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbFeedback", b =>
+                {
+                    b.Property<Guid>("ArticleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("article_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<bool>("Helpful")
+                        .HasColumnType("boolean")
+                        .HasColumnName("helpful");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("ArticleId", "UserId")
+                        .HasName("pk_kb_feedback");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_kb_feedback_tenant_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_kb_feedback_user_id");
+
+                    b.ToTable("kb_feedback", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ArticleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("article_id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("sha256");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("UploadedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_kb_files");
+
+                    b.HasIndex("ArticleId")
+                        .HasDatabaseName("ix_kb_files_article_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_kb_files_tenant_id");
+
+                    b.HasIndex("UploadedById")
+                        .HasDatabaseName("ix_kb_files_uploaded_by_id");
+
+                    b.ToTable("kb_files", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_kb_files_size", "size > 0");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Location", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("address");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<Guid?>("CalendarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("calendar_id");
+
+                    b.Property<int?>("Capacity")
+                        .HasColumnType("integer")
+                        .HasColumnName("capacity");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("ManagerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manager_user_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("time_zone");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_locations");
+
+                    b.HasIndex("CalendarId")
+                        .HasDatabaseName("ix_locations_calendar_id");
+
+                    b.HasIndex("ManagerUserId")
+                        .HasDatabaseName("ix_locations_manager_user_id");
+
+                    b.HasIndex("ParentId")
+                        .HasDatabaseName("ix_locations_parent_id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_locations_tenant_id_code")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.HasIndex("TenantId", "ParentId")
+                        .HasDatabaseName("ix_locations_tenant_id_parent_id");
+
+                    b.ToTable("locations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_locations_capacity", "capacity IS NULL OR capacity >= 0");
+
+                            t.HasCheckConstraint("ck_locations_not_own_parent", "parent_id IS NULL OR parent_id <> id");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.MaintenancePlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AssetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<Guid?>("AssetTypeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_type_id");
+
+                    b.Property<Guid?>("AssigneeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assignee_id");
+
+                    b.Property<Guid?>("ChecklistTemplateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("checklist_template_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly?>("EndsOn")
+                        .HasColumnType("date")
+                        .HasColumnName("ends_on");
+
+                    b.Property<int>("Every")
+                        .HasColumnType("integer")
+                        .HasColumnName("every");
+
+                    b.Property<string>("Instructions")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("instructions");
+
+                    b.Property<int>("LeadDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("lead_days");
+
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("name");
+
+                    b.Property<DateOnly?>("NextDueOn")
+                        .HasColumnType("date")
+                        .HasColumnName("next_due_on");
+
+                    b.Property<int>("NextIndex")
+                        .HasColumnType("integer")
+                        .HasColumnName("next_index");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<DateTimeOffset?>("PausedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paused_at");
+
+                    b.Property<bool>("RequireAfterPhoto")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_after_photo");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<DateOnly>("StartsOn")
+                        .HasColumnType("date")
+                        .HasColumnName("starts_on");
+
+                    b.Property<Guid?>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("unit");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_maintenance_plans");
+
+                    b.HasIndex("AssetId")
+                        .HasDatabaseName("ix_maintenance_plans_asset_id");
+
+                    b.HasIndex("AssetTypeId")
+                        .HasDatabaseName("ix_maintenance_plans_asset_type_id");
+
+                    b.HasIndex("AssigneeId")
+                        .HasDatabaseName("ix_maintenance_plans_assignee_id");
+
+                    b.HasIndex("ChecklistTemplateId")
+                        .HasDatabaseName("ix_maintenance_plans_checklist_template_id");
+
+                    b.HasIndex("LocationId")
+                        .HasDatabaseName("ix_maintenance_plans_location_id");
+
+                    b.HasIndex("NextDueOn")
+                        .HasDatabaseName("ix_maintenance_plans_next_due_on")
+                        .HasFilter("paused_at IS NULL AND next_due_on IS NOT NULL");
+
+                    b.HasIndex("OwnerId")
+                        .HasDatabaseName("ix_maintenance_plans_owner_id");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("ix_maintenance_plans_service_id");
+
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("ix_maintenance_plans_team_id");
+
+                    b.HasIndex("VendorId")
+                        .HasDatabaseName("ix_maintenance_plans_vendor_id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_maintenance_plans_tenant_id_name");
+
+                    b.ToTable("maintenance_plans", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_maintenance_plans_dates", "ends_on IS NULL OR ends_on >= starts_on");
+
+                            t.HasCheckConstraint("ck_maintenance_plans_every", "every >= 1");
+
+                            t.HasCheckConstraint("ck_maintenance_plans_lead", "lead_days >= 0 AND lead_days <= 90");
+
+                            t.HasCheckConstraint("ck_maintenance_plans_target", "asset_id IS NOT NULL OR asset_type_id IS NOT NULL OR location_id IS NOT NULL");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.MaintenanceVisit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AssetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("DueOn")
+                        .HasColumnType("date")
+                        .HasColumnName("due_on");
+
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<bool>("Missed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("missed");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<Guid>("TargetKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_key");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid?>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<Guid?>("WorkOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_maintenance_visits");
+
+                    b.HasIndex("AssetId")
+                        .HasDatabaseName("ix_maintenance_visits_asset_id");
+
+                    b.HasIndex("LocationId")
+                        .HasDatabaseName("ix_maintenance_visits_location_id");
+
+                    b.HasIndex("TicketId")
+                        .HasDatabaseName("ix_maintenance_visits_ticket_id");
+
+                    b.HasIndex("WorkOrderId")
+                        .HasDatabaseName("ix_maintenance_visits_work_order_id")
+                        .HasFilter("work_order_id IS NOT NULL");
+
+                    b.HasIndex("TenantId", "DueOn")
+                        .HasDatabaseName("ix_maintenance_visits_tenant_id_due_on");
+
+                    b.HasIndex("PlanId", "TargetKey", "DueOn")
+                        .IsUnique()
+                        .HasDatabaseName("ix_maintenance_visits_plan_id_target_key_due_on");
+
+                    b.ToTable("maintenance_visits", (string)null);
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.MfaFactor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -722,6 +2630,116 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_mfa_recovery_codes_user_id");
 
                     b.ToTable("mfa_recovery_codes", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("body");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("link");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid?>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notifications");
+
+                    b.HasIndex("TicketId")
+                        .HasDatabaseName("ix_notifications_ticket_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_notifications_user_id");
+
+                    b.HasIndex("TenantId", "UserId", "ReadAt", "CreatedAt")
+                        .HasDatabaseName("ix_notifications_tenant_id_user_id_read_at_created_at");
+
+                    b.ToTable("notifications", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool?>("Email")
+                        .HasColumnType("boolean")
+                        .HasColumnName("email");
+
+                    b.Property<bool?>("InApp")
+                        .HasColumnType("boolean")
+                        .HasColumnName("in_app");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notification_preferences");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_notification_preferences_user_id");
+
+                    b.HasIndex("TenantId", "UserId", "Kind")
+                        .IsUnique()
+                        .HasDatabaseName("ix_notification_preferences_tenant_id_user_id_kind");
+
+                    b.ToTable("notification_preferences", (string)null);
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.OutboxEmail", b =>
@@ -893,6 +2911,71 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.ToTable("rate_limit_buckets", (string)null);
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.RetentionPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int?>("AttachmentDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("attachment_days");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<int?>("FinishedTicketDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("finished_ticket_days");
+
+                    b.Property<DateTimeOffset?>("LastRunAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_run_at");
+
+                    b.Property<string>("LastRunJson")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("last_run_json");
+
+                    b.Property<int?>("NotificationDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("notification_days");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TicketAction")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("ticket_action");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_retention_policies");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_retention_policies_tenant_id");
+
+                    b.ToTable("retention_policies", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_retention_policies_action", "ticket_action IN ('anonymise', 'delete')");
+
+                            t.HasCheckConstraint("ck_retention_policies_periods", "(finished_ticket_days IS NULL OR finished_ticket_days BETWEEN 30 AND 3650) AND (attachment_days IS NULL OR attachment_days BETWEEN 7 AND 3650) AND (notification_days IS NULL OR notification_days BETWEEN 7 AND 3650)");
+                        });
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1061,6 +3144,235 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.ToTable("security_events", (string)null);
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ServiceCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("icon");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_service_categories");
+
+                    b.HasIndex("ParentId")
+                        .HasDatabaseName("ix_service_categories_parent_id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ux_service_categories_root_name")
+                        .HasFilter("parent_id IS NULL AND archived_at IS NULL");
+
+                    b.HasIndex("TenantId", "ParentId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ux_service_categories_child_name")
+                        .HasFilter("parent_id IS NOT NULL AND archived_at IS NULL");
+
+                    b.ToTable("service_categories", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_service_categories_not_own_parent", "parent_id IS NULL OR parent_id <> id");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ServiceFormVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<int>("FieldCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("field_count");
+
+                    b.Property<string>("FieldsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("fields_json");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer")
+                        .HasColumnName("number");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_service_form_versions");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_service_form_versions_created_by_user_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_service_form_versions_tenant_id");
+
+                    b.HasIndex("ServiceId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_service_form_versions_service_id_number");
+
+                    b.ToTable("service_form_versions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_service_form_versions_number", "number >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ServiceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("audience");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("CurrentFormVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_form_version");
+
+                    b.Property<string>("DefaultPriority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("default_priority");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("icon");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_published");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid?>("OwningTeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owning_team_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_services");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("ix_services_category_id");
+
+                    b.HasIndex("OwningTeamId")
+                        .HasDatabaseName("ix_services_owning_team_id");
+
+                    b.HasIndex("TenantId", "IsPublished")
+                        .HasDatabaseName("ix_services_tenant_id_is_published");
+
+                    b.HasIndex("TenantId", "CategoryId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_services_tenant_id_category_id_name")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.ToTable("services", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_services_form_version", "current_form_version >= 0");
+                        });
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.Session", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1171,6 +3483,112 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.ToTable("sessions", (string)null);
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.SlaPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<Guid?>("CalendarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("calendar_id");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Escalate1Percent")
+                        .HasColumnType("integer")
+                        .HasColumnName("escalate1percent");
+
+                    b.Property<int>("Escalate2Percent")
+                        .HasColumnType("integer")
+                        .HasColumnName("escalate2percent");
+
+                    b.Property<int>("FirstResponseMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("first_response_minutes");
+
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Priority")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("priority");
+
+                    b.Property<int>("ResolutionMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("resolution_minutes");
+
+                    b.Property<Guid?>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sla_policies");
+
+                    b.HasIndex("CalendarId")
+                        .HasDatabaseName("ix_sla_policies_calendar_id");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("ix_sla_policies_category_id");
+
+                    b.HasIndex("LocationId")
+                        .HasDatabaseName("ix_sla_policies_location_id");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("ix_sla_policies_service_id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sla_policies_tenant_id_name")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.HasIndex("TenantId", "Position")
+                        .HasDatabaseName("ix_sla_policies_tenant_id_position");
+
+                    b.ToTable("sla_policies", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sla_policies_escalation", "escalate1percent BETWEEN 1 AND 98 AND escalate2percent > escalate1percent AND escalate2percent <= 99");
+
+                            t.HasCheckConstraint("ck_sla_policies_targets", "first_response_minutes >= 1 AND resolution_minutes >= first_response_minutes");
+                        });
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.SystemSetting", b =>
                 {
                     b.Property<string>("Key")
@@ -1209,6 +3627,90 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasName("pk_system_settings");
 
                     b.ToTable("system_settings", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Team", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_teams");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_teams_tenant_id_name")
+                        .HasFilter("archived_at IS NULL");
+
+                    b.ToTable("teams", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TeamMember", b =>
+                {
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("added_at");
+
+                    b.Property<bool>("IsLead")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_lead");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("TeamId", "UserId")
+                        .HasName("pk_team_members");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_team_members_tenant_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_team_members_user_id");
+
+                    b.ToTable("team_members", (string)null);
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.Tenant", b =>
@@ -1282,6 +3784,675 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasName("pk_tenant_settings");
 
                     b.ToTable("tenant_settings", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Ticket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AnonymisedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("anonymised_at");
+
+                    b.Property<string>("AnswersJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("answers_json");
+
+                    b.Property<Guid?>("AssetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<DateTimeOffset?>("AssignedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at");
+
+                    b.Property<Guid?>("AssigneeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assignee_id");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cancel_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("FirstRespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_responded_at");
+
+                    b.Property<DateTimeOffset?>("FirstResponseDueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_response_due_at");
+
+                    b.Property<int>("FormVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("form_version");
+
+                    b.Property<string>("HoldReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("hold_reason");
+
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("number");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("priority");
+
+                    b.Property<int>("ReopenCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("reopen_count");
+
+                    b.Property<Guid>("RequesterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requester_id");
+
+                    b.Property<string>("ResolutionCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("resolution_code");
+
+                    b.Property<DateTimeOffset?>("ResolutionDueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolution_due_at");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("resolution_note");
+
+                    b.Property<bool>("ResolveWithWorkOrders")
+                        .HasColumnType("boolean")
+                        .HasColumnName("resolve_with_work_orders");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer")
+                        .HasColumnName("sequence");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<string>("ServiceName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("service_name");
+
+                    b.Property<DateTimeOffset?>("SlaBreachedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sla_breached_at");
+
+                    b.Property<Guid?>("SlaCalendarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sla_calendar_id");
+
+                    b.Property<int>("SlaEscalate1Percent")
+                        .HasColumnType("integer")
+                        .HasColumnName("sla_escalate1percent");
+
+                    b.Property<int>("SlaEscalate2Percent")
+                        .HasColumnType("integer")
+                        .HasColumnName("sla_escalate2percent");
+
+                    b.Property<int>("SlaEscalationLevel")
+                        .HasColumnType("integer")
+                        .HasColumnName("sla_escalation_level");
+
+                    b.Property<int>("SlaFirstResponseMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("sla_first_response_minutes");
+
+                    b.Property<DateTimeOffset?>("SlaPausedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sla_paused_at");
+
+                    b.Property<int>("SlaPausedMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("sla_paused_minutes");
+
+                    b.Property<Guid?>("SlaPolicyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sla_policy_id");
+
+                    b.Property<int>("SlaResolutionMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("sla_resolution_minutes");
+
+                    b.Property<DateTimeOffset?>("SlaStartAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sla_start_at");
+
+                    b.Property<string>("SlaState")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("sla_state");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("subject");
+
+                    b.Property<Guid?>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tickets");
+
+                    b.HasIndex("AssetId")
+                        .HasDatabaseName("ix_tickets_asset_id");
+
+                    b.HasIndex("AssigneeId")
+                        .HasDatabaseName("ix_tickets_assignee_id");
+
+                    b.HasIndex("CreatedById")
+                        .HasDatabaseName("ix_tickets_created_by_id");
+
+                    b.HasIndex("LocationId")
+                        .HasDatabaseName("ix_tickets_location_id");
+
+                    b.HasIndex("RequesterId")
+                        .HasDatabaseName("ix_tickets_requester_id");
+
+                    b.HasIndex("ResolutionDueAt")
+                        .HasDatabaseName("ix_tickets_resolution_due_at")
+                        .HasFilter("sla_policy_id IS NOT NULL AND resolved_at IS NULL");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("ix_tickets_service_id");
+
+                    b.HasIndex("SlaPolicyId")
+                        .HasDatabaseName("ix_tickets_sla_policy_id");
+
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("ix_tickets_team_id");
+
+                    b.HasIndex("TenantId", "AssetId")
+                        .HasDatabaseName("ix_tickets_tenant_id_asset_id")
+                        .HasFilter("asset_id IS NOT NULL");
+
+                    b.HasIndex("TenantId", "AssigneeId")
+                        .HasDatabaseName("ix_tickets_tenant_id_assignee_id");
+
+                    b.HasIndex("TenantId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tickets_tenant_id_number");
+
+                    b.HasIndex("TenantId", "SlaState")
+                        .HasDatabaseName("ix_tickets_tenant_id_sla_state");
+
+                    b.HasIndex("TenantId", "TeamId")
+                        .HasDatabaseName("ix_tickets_tenant_id_team_id");
+
+                    b.HasIndex("TenantId", "RequesterId", "UpdatedAt")
+                        .HasDatabaseName("ix_tickets_tenant_id_requester_id_updated_at");
+
+                    b.HasIndex("TenantId", "Status", "UpdatedAt")
+                        .HasDatabaseName("ix_tickets_tenant_id_status_updated_at");
+
+                    b.HasIndex("TenantId", "UpdatedAt", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("ix_tickets_tenant_id_open_updated_at")
+                        .HasFilter("status NOT IN ('Closed', 'Cancelled', 'Rejected')");
+
+                    b.HasIndex("TenantId", "Year", "Sequence")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tickets_tenant_id_year_sequence");
+
+                    b.ToTable("tickets", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_tickets_form_version", "form_version >= 0");
+
+                            t.HasCheckConstraint("ck_tickets_sequence", "sequence >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketApproval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ApproverId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approver_id");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<string>("DecidedVia")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("decided_via");
+
+                    b.Property<string>("Device")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("device");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ip");
+
+                    b.Property<Guid?>("OnBehalfOfId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("on_behalf_of_id");
+
+                    b.Property<string>("Rule")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("rule");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("StepName")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("step_name");
+
+                    b.Property<int>("StepNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("step_no");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<DateTimeOffset?>("TokenExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("token_expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticket_approvals");
+
+                    b.HasIndex("ApproverId")
+                        .HasDatabaseName("ix_ticket_approvals_approver_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticket_approvals_token_hash")
+                        .HasFilter("token_hash IS NOT NULL");
+
+                    b.HasIndex("TicketId", "StepNo")
+                        .HasDatabaseName("ix_ticket_approvals_ticket_id_step_no");
+
+                    b.HasIndex("TenantId", "ApproverId", "Status")
+                        .HasDatabaseName("ix_ticket_approvals_tenant_id_approver_id_status");
+
+                    b.HasIndex("TicketId", "StepNo", "ApproverId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticket_approvals_ticket_id_step_no_approver_id");
+
+                    b.ToTable("ticket_approvals", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ticket_approvals_step", "step_no >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketCounter", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.Property<int>("Last")
+                        .HasColumnType("integer")
+                        .HasColumnName("last");
+
+                    b.HasKey("TenantId", "Year")
+                        .HasName("pk_ticket_counters");
+
+                    b.ToTable("ticket_counters", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ticket_counters_last", "last >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<string>("ActorLabel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_label");
+
+                    b.Property<string>("Body")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("body");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("from_status");
+
+                    b.Property<bool>("Internal")
+                        .HasColumnType("boolean")
+                        .HasColumnName("internal");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<string>("ToStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("to_status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticket_events");
+
+                    b.HasIndex("ActorId")
+                        .HasDatabaseName("ix_ticket_events_actor_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_ticket_events_tenant_id");
+
+                    b.HasIndex("TicketId", "CreatedAt")
+                        .HasDatabaseName("ix_ticket_events_ticket_id_created_at");
+
+                    b.ToTable("ticket_events", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketLegalHold", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("PlacedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("placed_at");
+
+                    b.Property<Guid>("PlacedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("placed_by_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticket_legal_holds");
+
+                    b.HasIndex("PlacedById")
+                        .HasDatabaseName("ix_ticket_legal_holds_placed_by_id");
+
+                    b.HasIndex("TicketId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticket_legal_holds_ticket_id");
+
+                    b.HasIndex("TenantId", "PlacedAt")
+                        .HasDatabaseName("ix_ticket_legal_holds_tenant_id_placed_at");
+
+                    b.ToTable("ticket_legal_holds", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketRating", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AlertedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("alerted_at");
+
+                    b.Property<Guid?>("AssigneeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assignee_id");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<Guid>("RaterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rater_id");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer")
+                        .HasColumnName("score");
+
+                    b.Property<Guid?>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticket_ratings");
+
+                    b.HasIndex("AssigneeId")
+                        .HasDatabaseName("ix_ticket_ratings_assignee_id");
+
+                    b.HasIndex("LocationId")
+                        .HasDatabaseName("ix_ticket_ratings_location_id");
+
+                    b.HasIndex("RaterId")
+                        .HasDatabaseName("ix_ticket_ratings_rater_id");
+
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("ix_ticket_ratings_team_id");
+
+                    b.HasIndex("TicketId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticket_ratings_ticket_id");
+
+                    b.HasIndex("TenantId", "UpdatedAt")
+                        .HasDatabaseName("ix_ticket_ratings_tenant_id_updated_at");
+
+                    b.HasIndex("TenantId", "AssigneeId", "UpdatedAt")
+                        .HasDatabaseName("ix_ticket_ratings_tenant_id_assignee_id_updated_at");
+
+                    b.ToTable("ticket_ratings", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ticket_ratings_score", "score BETWEEN 1 AND 5");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketView", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FilterJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("filter_json");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<bool>("Shared")
+                        .HasColumnType("boolean")
+                        .HasColumnName("shared");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticket_views");
+
+                    b.HasIndex("OwnerId")
+                        .HasDatabaseName("ix_ticket_views_owner_id");
+
+                    b.HasIndex("TenantId", "Shared")
+                        .HasDatabaseName("ix_ticket_views_tenant_id_shared");
+
+                    b.HasIndex("TenantId", "OwnerId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticket_views_tenant_id_owner_id_name");
+
+                    b.ToTable("ticket_views", (string)null);
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.User", b =>
@@ -1472,6 +4643,10 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("language");
 
+                    b.Property<Guid?>("ManagerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manager_id");
+
                     b.Property<bool>("NotifyEmail")
                         .HasColumnType("boolean")
                         .HasColumnName("notify_email");
@@ -1495,6 +4670,9 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
 
                     b.HasKey("UserId")
                         .HasName("pk_user_profiles");
+
+                    b.HasIndex("ManagerId")
+                        .HasDatabaseName("ix_user_profiles_manager_id");
 
                     b.ToTable("user_profiles", null, t =>
                         {
@@ -1527,6 +4705,831 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_user_roles_role_id");
 
                     b.ToTable("user_roles", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Vendor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("address");
+
+                    b.Property<string>("BlockReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("block_reason");
+
+                    b.Property<DateTimeOffset?>("BlockedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("blocked_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("phone");
+
+                    b.Property<string>("Services")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("services");
+
+                    b.Property<string>("TaxId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("tax_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("website");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vendors");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_vendors_tenant_id_name");
+
+                    b.ToTable("vendors", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("phone");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("role");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vendor_contacts");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_vendor_contacts_tenant_id");
+
+                    b.HasIndex("VendorId")
+                        .HasDatabaseName("ix_vendor_contacts_vendor_id");
+
+                    b.ToTable("vendor_contacts", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorContract", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly?>("EndsOn")
+                        .HasColumnType("date")
+                        .HasColumnName("ends_on");
+
+                    b.Property<int>("ExpiryNotice")
+                        .HasColumnType("integer")
+                        .HasColumnName("expiry_notice");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("reference");
+
+                    b.Property<DateOnly>("StartsOn")
+                        .HasColumnType("date")
+                        .HasColumnName("starts_on");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<decimal?>("Value")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("value");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vendor_contracts");
+
+                    b.HasIndex("VendorId")
+                        .HasDatabaseName("ix_vendor_contracts_vendor_id");
+
+                    b.HasIndex("TenantId", "EndsOn")
+                        .HasDatabaseName("ix_vendor_contracts_tenant_id_ends_on")
+                        .HasFilter("ends_on IS NOT NULL");
+
+                    b.ToTable("vendor_contracts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_vendor_contracts_dates", "ends_on IS NULL OR ends_on >= starts_on");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("content_type");
+
+                    b.Property<Guid?>("ContractId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contract_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("sha256");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("UploadedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by_id");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vendor_documents");
+
+                    b.HasIndex("ContractId")
+                        .HasDatabaseName("ix_vendor_documents_contract_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_vendor_documents_tenant_id");
+
+                    b.HasIndex("UploadedById")
+                        .HasDatabaseName("ix_vendor_documents_uploaded_by_id");
+
+                    b.HasIndex("VendorId")
+                        .HasDatabaseName("ix_vendor_documents_vendor_id");
+
+                    b.ToTable("vendor_documents", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_vendor_documents_size", "size > 0");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorSite", b =>
+                {
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("VendorId", "LocationId")
+                        .HasName("pk_vendor_sites");
+
+                    b.HasIndex("LocationId")
+                        .HasDatabaseName("ix_vendor_sites_location_id");
+
+                    b.HasIndex("TenantId", "LocationId")
+                        .HasDatabaseName("ix_vendor_sites_tenant_id_location_id");
+
+                    b.ToTable("vendor_sites", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorUser", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_vendor_users");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_vendor_users_tenant_id");
+
+                    b.HasIndex("VendorId")
+                        .HasDatabaseName("ix_vendor_users_vendor_id");
+
+                    b.ToTable("vendor_users", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WebhookDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("delivered_at");
+
+                    b.Property<Guid>("EndpointId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("endpoint_id");
+
+                    b.Property<string>("Event")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("event");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset?>("FailedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("failed_at");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("last_error");
+
+                    b.Property<int?>("LastStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("last_status");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload_json");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_webhook_deliveries");
+
+                    b.HasIndex("NextAttemptAt")
+                        .HasDatabaseName("ix_webhook_deliveries_next_attempt_at")
+                        .HasFilter("delivered_at IS NULL AND failed_at IS NULL");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_webhook_deliveries_tenant_id");
+
+                    b.HasIndex("EndpointId", "CreatedAt")
+                        .HasDatabaseName("ix_webhook_deliveries_endpoint_id_created_at");
+
+                    b.ToTable("webhook_deliveries", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WebhookEndpoint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<string>("Events")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("events");
+
+                    b.Property<byte[]>("SecretCiphertext")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("secret_ciphertext");
+
+                    b.Property<int>("SecretKeyVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("secret_key_version");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("url");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_webhook_endpoints");
+
+                    b.HasIndex("CreatedById")
+                        .HasDatabaseName("ix_webhook_endpoints_created_by_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_webhook_endpoints_tenant_id");
+
+                    b.ToTable("webhook_endpoints", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WorkOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AssetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<Guid?>("AssigneeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assignee_id");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cancel_reason");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<string>("CompletionNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("completion_note");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<DateTimeOffset?>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<string>("HoldReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("hold_reason");
+
+                    b.Property<string>("Instructions")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("instructions");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("number");
+
+                    b.Property<string>("PurchaseOrder")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("purchase_order");
+
+                    b.Property<bool>("RequireAfterPhoto")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_after_photo");
+
+                    b.Property<bool>("Required")
+                        .HasColumnType("boolean")
+                        .HasColumnName("required");
+
+                    b.Property<int>("Seq")
+                        .HasColumnType("integer")
+                        .HasColumnName("seq");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("TeamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("team_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_work_orders");
+
+                    b.HasIndex("AssetId")
+                        .HasDatabaseName("ix_work_orders_asset_id");
+
+                    b.HasIndex("AssigneeId")
+                        .HasDatabaseName("ix_work_orders_assignee_id");
+
+                    b.HasIndex("TeamId")
+                        .HasDatabaseName("ix_work_orders_team_id");
+
+                    b.HasIndex("VendorId")
+                        .HasDatabaseName("ix_work_orders_vendor_id");
+
+                    b.HasIndex("TenantId", "VendorId")
+                        .HasDatabaseName("ix_work_orders_tenant_id_vendor_id")
+                        .HasFilter("vendor_id IS NOT NULL");
+
+                    b.HasIndex("TicketId", "Seq")
+                        .IsUnique()
+                        .HasDatabaseName("ix_work_orders_ticket_id_seq");
+
+                    b.HasIndex("TenantId", "AssigneeId", "Status")
+                        .HasDatabaseName("ix_work_orders_tenant_id_assignee_id_status");
+
+                    b.HasIndex("TenantId", "Status", "UpdatedAt")
+                        .HasDatabaseName("ix_work_orders_tenant_id_status_updated_at");
+
+                    b.ToTable("work_orders", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_work_orders_seq", "seq >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WorkOrderCost", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<string>("CreatedByLabel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by_label");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("quantity");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("unit_cost");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_work_order_costs");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_work_order_costs_tenant_id");
+
+                    b.HasIndex("WorkOrderId")
+                        .HasDatabaseName("ix_work_order_costs_work_order_id");
+
+                    b.ToTable("work_order_costs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_work_order_costs_amounts", "quantity > 0 AND unit_cost >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WorkOrderTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("DoneAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("done_at");
+
+                    b.Property<Guid?>("DoneById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("done_by_id");
+
+                    b.Property<string>("DoneByLabel")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("done_by_label");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<bool>("Required")
+                        .HasColumnType("boolean")
+                        .HasColumnName("required");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("text");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_work_order_tasks");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_work_order_tasks_tenant_id");
+
+                    b.HasIndex("WorkOrderId", "Position")
+                        .HasDatabaseName("ix_work_order_tasks_work_order_id_position");
+
+                    b.ToTable("work_order_tasks", (string)null);
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WorkOrderTime", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Minutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("minutes");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("UserLabel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("user_label");
+
+                    b.Property<DateOnly>("WorkDate")
+                        .HasColumnType("date")
+                        .HasColumnName("work_date");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_work_order_times");
+
+                    b.HasIndex("WorkOrderId")
+                        .HasDatabaseName("ix_work_order_times_work_order_id");
+
+                    b.HasIndex("TenantId", "UserId", "WorkDate")
+                        .HasDatabaseName("ix_work_order_times_tenant_id_user_id_work_date");
+
+                    b.ToTable("work_order_times", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_work_order_times_minutes", "minutes BETWEEN 1 AND 1440");
+                        });
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.AccessRequest", b =>
@@ -1633,6 +5636,230 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ApiIdempotency", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.ApiKey", null)
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_api_idempotency_api_keys_api_key_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_api_idempotency_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_api_idempotency_tickets_ticket_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ApiKey", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_api_keys_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_api_keys_users_user_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ApprovalDelegation", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("DelegateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_approval_delegations_users_delegate_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_approval_delegations_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_approval_delegations_users_user_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ApprovalPolicy", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("FallbackUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_approval_policies_users_fallback_user_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_approval_policies_services_service_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_approval_policies_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Asset", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.AssetType", null)
+                        .WithMany()
+                        .HasForeignKey("AssetTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_assets_asset_types_asset_type_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedToId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_assets_users_assigned_to_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_assets_locations_location_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_assets_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.AssetCounter", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_asset_counters_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.AssetEvent", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_asset_events_users_actor_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_asset_events_assets_asset_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_asset_events_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.AssetType", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_asset_types_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.AssignmentRule", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_assignment_rules_service_categories_category_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_assignment_rules_locations_location_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_assignment_rules_services_service_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_assignment_rules_teams_team_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_assignment_rules_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Attachment", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_attachments_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_attachments_tickets_ticket_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_attachments_users_uploaded_by_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.WorkOrder", null)
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_attachments_work_orders_work_order_id");
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.AuditEvent", b =>
                 {
                     b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
@@ -1653,6 +5880,114 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_avatars_users_user_id");
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Budget", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_budgets_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.BusinessCalendar", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_business_calendars_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CalendarHoliday", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.BusinessCalendar", null)
+                        .WithMany("Holidays")
+                        .HasForeignKey("CalendarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_holidays_business_calendars_calendar_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_holidays_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CalendarPeriod", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.BusinessCalendar", null)
+                        .WithMany("Periods")
+                        .HasForeignKey("CalendarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_periods_business_calendars_calendar_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_periods_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ChecklistTemplate", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_checklist_templates_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CostCenter", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_cost_centers_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CostCenterPlace", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.CostCenter", null)
+                        .WithMany()
+                        .HasForeignKey("CostCenterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_cost_center_places_cost_centers_cost_center_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_cost_center_places_locations_location_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_cost_center_places_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.CostSettings", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_cost_settings_tenants_tenant_id");
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.EmailVerificationToken", b =>
                 {
                     b.HasOne("AnnabaDigital.Domain.Entities.User", null)
@@ -1663,6 +5998,16 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_email_verification_tokens_users_user_id");
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.EmailWording", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_email_wordings_tenants_tenant_id");
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.ExternalIdentity", b =>
                 {
                     b.HasOne("AnnabaDigital.Domain.Entities.User", null)
@@ -1671,6 +6016,51 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_external_identities_users_user_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.InboundMailbox", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("DefaultServiceId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_inbound_mailboxes_services_default_service_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_inbound_mailboxes_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.InboundMessage", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.InboundMailbox", null)
+                        .WithMany()
+                        .HasForeignKey("MailboxId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_inbound_messages_inbound_mailboxes_mailbox_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_inbound_messages_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_inbound_messages_tickets_ticket_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_inbound_messages_users_user_id");
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.Invitation", b =>
@@ -1693,6 +6083,270 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_invitation_roles_invitations_invitation_id");
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbArticle", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.KbCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_kb_articles_kb_categories_category_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_articles_users_created_by_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_articles_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbArticleService", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.KbArticle", null)
+                        .WithMany()
+                        .HasForeignKey("ArticleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_article_services_kb_articles_article_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_article_services_services_service_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_article_services_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbArticleVersion", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.KbArticle", null)
+                        .WithMany()
+                        .HasForeignKey("ArticleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_article_versions_kb_articles_article_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_article_versions_users_created_by_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_article_versions_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbCategory", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_categories_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbFeedback", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.KbArticle", null)
+                        .WithMany()
+                        .HasForeignKey("ArticleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_feedback_kb_articles_article_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_feedback_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_feedback_users_user_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.KbFile", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.KbArticle", null)
+                        .WithMany()
+                        .HasForeignKey("ArticleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_files_kb_articles_article_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_files_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_kb_files_users_uploaded_by_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Location", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.BusinessCalendar", null)
+                        .WithMany()
+                        .HasForeignKey("CalendarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_locations_calendars_calendar_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ManagerUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_locations_users_manager_user_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_locations_locations_parent_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_locations_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.MaintenancePlan", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_maintenance_plans_assets_asset_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.AssetType", null)
+                        .WithMany()
+                        .HasForeignKey("AssetTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_maintenance_plans_asset_types_asset_type_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AssigneeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_maintenance_plans_users_assignee_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.ChecklistTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("ChecklistTemplateId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_maintenance_plans_checklist_templates_checklist_template_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_maintenance_plans_locations_location_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_maintenance_plans_users_owner_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_maintenance_plans_services_service_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_maintenance_plans_teams_team_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_maintenance_plans_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_maintenance_plans_vendors_vendor_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.MaintenanceVisit", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_maintenance_visits_assets_asset_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_maintenance_visits_locations_location_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.MaintenancePlan", null)
+                        .WithMany()
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_maintenance_visits_maintenance_plans_plan_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_maintenance_visits_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_maintenance_visits_tickets_ticket_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.WorkOrder", null)
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_maintenance_visits_work_orders_work_order_id");
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.MfaFactor", b =>
                 {
                     b.HasOne("AnnabaDigital.Domain.Entities.User", null)
@@ -1713,6 +6367,46 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_mfa_recovery_codes_users_user_id");
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_notifications_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_notifications_tickets_ticket_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notifications_users_user_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_notification_preferences_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notification_preferences_users_user_id");
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.OutboxEmail", b =>
                 {
                     b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
@@ -1731,6 +6425,16 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_password_reset_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.RetentionPolicy", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_retention_policies_tenants_tenant_id");
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.Role", b =>
@@ -1770,6 +6474,68 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_security_events_tenants_tenant_id");
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ServiceCategory", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceCategory", null)
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_service_categories_service_categories_parent_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_categories_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ServiceFormVersion", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_service_form_versions_users_created_by_user_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_form_versions_services_service_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_form_versions_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.ServiceItem", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_services_service_categories_category_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Team", null)
+                        .WithMany()
+                        .HasForeignKey("OwningTeamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_services_teams_owning_team_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_services_tenants_tenant_id");
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.Session", b =>
                 {
                     b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
@@ -1789,6 +6555,76 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.SlaPolicy", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.BusinessCalendar", null)
+                        .WithMany()
+                        .HasForeignKey("CalendarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sla_policies_business_calendars_calendar_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sla_policies_service_categories_category_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sla_policies_locations_location_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sla_policies_services_service_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sla_policies_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Team", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_teams_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TeamMember", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Team", null)
+                        .WithMany("Members")
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_team_members_teams_team_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_team_members_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_team_members_users_user_id");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.TenantSetting", b =>
                 {
                     b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
@@ -1797,6 +6633,207 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_tenant_settings_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Ticket", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_tickets_assets_asset_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AssigneeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_tickets_users_assignee_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tickets_users_created_by_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_tickets_locations_location_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("RequesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tickets_users_requester_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.ServiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tickets_services_service_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.SlaPolicy", null)
+                        .WithMany()
+                        .HasForeignKey("SlaPolicyId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_tickets_sla_policies_sla_policy_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_tickets_teams_team_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tickets_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketApproval", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ApproverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_approvals_users_approver_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_approvals_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_approvals_tickets_ticket_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketCounter", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_counters_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketEvent", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_ticket_events_users_actor_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_events_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_events_tickets_ticket_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketLegalHold", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("PlacedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_legal_holds_users_placed_by_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_legal_holds_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_legal_holds_tickets_ticket_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketRating", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AssigneeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_ticket_ratings_users_assignee_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_ticket_ratings_locations_location_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("RaterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_ratings_users_rater_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_ticket_ratings_teams_team_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_ratings_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_ratings_tickets_ticket_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.TicketView", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_views_users_owner_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_views_tenants_tenant_id");
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.User", b =>
@@ -1834,6 +6871,12 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.UserProfile", b =>
                 {
                     b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ManagerId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_user_profiles_users_manager_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
                         .WithOne("Profile")
                         .HasForeignKey("AnnabaDigital.Domain.Entities.UserProfile", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1862,9 +6905,264 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Vendor", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendors_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorContact", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_contacts_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_contacts_vendors_vendor_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorContract", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_contracts_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_contracts_vendors_vendor_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorDocument", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.VendorContract", null)
+                        .WithMany()
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_vendor_documents_vendor_contracts_contract_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_documents_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_documents_users_uploaded_by_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_documents_vendors_vendor_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorSite", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_sites_locations_location_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_sites_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_sites_vendors_vendor_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.VendorUser", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_users_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_users_users_user_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vendor_users_vendors_vendor_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WebhookDelivery", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.WebhookEndpoint", null)
+                        .WithMany()
+                        .HasForeignKey("EndpointId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_webhook_deliveries_webhook_endpoints_endpoint_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_webhook_deliveries_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WebhookEndpoint", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_webhook_endpoints_users_created_by_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_webhook_endpoints_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WorkOrder", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Asset", null)
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_work_orders_assets_asset_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AssigneeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_work_orders_users_assignee_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_work_orders_teams_team_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_orders_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_orders_tickets_ticket_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_work_orders_vendors_vendor_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WorkOrderCost", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_order_costs_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.WorkOrder", null)
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_order_costs_work_orders_work_order_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WorkOrderTask", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_order_tasks_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.WorkOrder", null)
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_order_tasks_work_orders_work_order_id");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.WorkOrderTime", b =>
+                {
+                    b.HasOne("AnnabaDigital.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_order_times_tenants_tenant_id");
+
+                    b.HasOne("AnnabaDigital.Domain.Entities.WorkOrder", null)
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_order_times_work_orders_work_order_id");
+                });
+
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.AccessReview", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.BusinessCalendar", b =>
+                {
+                    b.Navigation("Holidays");
+
+                    b.Navigation("Periods");
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.Invitation", b =>
@@ -1875,6 +7173,11 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.Role", b =>
                 {
                     b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("AnnabaDigital.Domain.Entities.Team", b =>
+                {
+                    b.Navigation("Members");
                 });
 
             modelBuilder.Entity("AnnabaDigital.Domain.Entities.User", b =>

@@ -108,6 +108,8 @@ public sealed class CsrfMiddleware(RequestDelegate next, IOptions<ApiOptions> op
     public async Task InvokeAsync(HttpContext ctx)
     {
         if (Safe.Contains(ctx.Request.Method) || !ctx.Request.Path.StartsWithSegments("/api")) { await next(ctx); return; }
+        // server-to-server endpoints carry no Origin and no session; they authenticate themselves (a secret URL or a key) and never act on a cookie
+        if (ctx.GetEndpoint()?.Metadata.GetMetadata<MachineEndpoint>() is not null && (ctx.Principal() is null || ctx.ApiKey() is not null)) { await next(ctx); return; }
 
         var origin = ctx.Request.Headers.Origin.ToString();
         if (!string.Equals(origin, options.Value.Origin, StringComparison.OrdinalIgnoreCase))

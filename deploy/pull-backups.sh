@@ -20,13 +20,17 @@ C="$("${SSH[@]}" "docker ps --format '{{.Names}}' | grep '^backup-' | head -n 1"
 
 fetched=0; kept=0
 while IFS= read -r f; do
-  [[ "$f" =~ ^annaba_digital-[0-9]{8}-[0-9]{6}\.dump$ ]] || continue   # only files that look like our dumps
+  [[ "$f" =~ ^annaba_digital-[0-9]{8}-[0-9]{6}\.(dump|files\.tgz)$ ]] || continue   # only files that look like our dumps and their files archives
   if [ -s "$DEST/$f" ]; then kept=$((kept + 1)); continue; fi
   "${SSH[@]}" "docker exec $C cat /backups/$f" > "$DEST/$f.part"
   # A pg_dump custom-format file starts with "PGDMP"; anything else means a truncated or wrong transfer.
-  [ "$(head -c 5 "$DEST/$f.part")" = "PGDMP" ] || { rm -f "$DEST/$f.part"; echo "Bad dump header in $f, skipped." >&2; continue; }
+  if [[ "$f" == *.dump ]]; then
+    [ "$(head -c 5 "$DEST/$f.part")" = "PGDMP" ] || { rm -f "$DEST/$f.part"; echo "Bad dump header in $f, skipped." >&2; continue; }
+  else
+    gzip -t "$DEST/$f.part" 2>/dev/null || { rm -f "$DEST/$f.part"; echo "Bad archive $f, skipped." >&2; continue; }   # a truncated transfer fails the gzip check
+  fi
   mv "$DEST/$f.part" "$DEST/$f"; chmod 600 "$DEST/$f"; fetched=$((fetched + 1))
 done < <("${SSH[@]}" "docker exec $C ls -1 /backups")
 
-if [ "$KEEP" -gt 0 ]; then find "$DEST" -name 'annaba_digital-*.dump' -mtime "+$KEEP" -delete; fi
+if [ "$KEEP" -gt 0 ]; then find "$DEST" \( -name 'annaba_digital-*.dump' -o -name 'annaba_digital-*.files.tgz' \) -mtime "+$KEEP" -delete; fi
 echo "Fetched $fetched new, $kept already here -> $DEST ($(ls "$DEST" | grep -c '\.dump$') dumps)."
