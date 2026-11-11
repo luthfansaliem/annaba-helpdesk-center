@@ -506,4 +506,39 @@ public sealed class WorkOrderService(IAppDb db, IClock clock, AuditWriter audit,
         if (!await db.Attachments.AnyAsync(a => a.Id == fileId && a.WorkOrderId == id && a.DeletedAt == null, ct)) throw DomainException.NotFound("File");
         return await attachments.OpenAsync(wo.TicketId, fileId, ct);
     }
+    // ================================================================ summary (module analytics, docs/52)
+    /// <summary>Counts over the work orders this person may see (the list's scope): what is open, late or due this week, what was done in the last 30 days
+    /// and how quickly, created vs done per week for 12 weeks, and the open work per vendor.</summary>
+    public async Task<WorkOrderSummary> SummaryAsync(SessionPrincipal p, CancellationToken ct = default)
+    {
+        var w = await WhoAsync(p, ct);
+        var q = await VisibleAsync(w, ct);
+        var now = clock.UtcNow; var week = now.AddDays(7); var d30 = now.AddDays(-30); var d90 = now.AddDays(-90);
+        var open = q.Where(x => x.Status != WorkOrderStatus.Done && x.Status != WorkOrderStatus.Cancelled);
+        var groups = await open.GroupBy(x => new { x.Status, Vendor = x.VendorId != null }).Select(g => new
+        {
+            g.Key.Status, g.Key.Vendor, N = g.Count(), Overdue = g.Count(x => x.DueAt != null && x.DueAt < now), Week = g.Count(x => x.DueAt != null && x.DueAt >= now && x.DueAt <= week),
+        }).ToListAsync(ct);
+        var done = q.Where(x => x.Status == WorkOrderStatus.Done && x.CompletedAt != null);
+        var done30 = await done.Where(x => x.CompletedAt >= d30).GroupBy(x => 1).Select(g => new
+        {
+            N = g.Count(), OnTime = g.Count(x => x.DueAt != null && x.CompletedAt <= x.DueAt), Late = g.Count(x => x.DueAt != null && x.CompletedAt > x.DueAt),
+        }).FirstOrDefaultAsync(ct);
+        var avg = await done.Where(x => x.CompletedAt >= d90).Select(x => (double?)(x.CompletedAt!.Value - x.CreatedAt).TotalHours).AverageAsync(ct);
+
+        var start = new DateTimeOffset(now.UtcDateTime.Date.AddDays(-83), TimeSpan.Zero);
+        var createdPerWeek = await q.Where(x => x.CreatedAt >= start).GroupBy(x => Math.Floor((x.CreatedAt - start).TotalDays / 7)).Select(g => new { W = g.Key, N = g.Count() }).ToDictionaryAsync(x => (int)x.W, x => x.N, ct);
+        var donePerWeek = await done.Where(x => x.CompletedAt >= start).GroupBy(x => Math.Floor((x.CompletedAt!.Value - start).TotalDays / 7)).Select(g => new { W = g.Key, N = g.Count() }).ToDictionaryAsync(x => (int)x.W, x => x.N, ct);
+        var weekly = Enumerable.Range(0, 12).Select(i => new WeekPoint(start.AddDays(7 * i).ToString("yyyy-MM-dd"), createdPerWeek.GetValueOrDefault(i), donePerWeek.GetValueOrDefault(i))).ToList();
+
+        var perVendor = await open.Where(x => x.VendorId != null).GroupBy(x => x.VendorId!.Value).Select(g => new { g.Key, N = g.Count() }).OrderByDescending(x => x.N).Take(6).ToListAsync(ct);
+        var vendorIds = perVendor.Select(x => x.Key).ToList();
+        var vendorNames = await db.Vendors.AsNoTracking().Where(v => vendorIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id, v => v.Name, ct);
+
+        WorkOrderStatus[] order = [WorkOrderStatus.Open, WorkOrderStatus.InProgress, WorkOrderStatus.OnHold];
+        return new WorkOrderSummary(groups.Sum(x => x.N), groups.Sum(x => x.Overdue), groups.Sum(x => x.Week), done30?.N ?? 0, done30?.OnTime ?? 0, done30?.Late ?? 0,
+            avg is null ? null : Math.Round(avg.Value, 1), groups.Where(x => !x.Vendor).Sum(x => x.N), groups.Where(x => x.Vendor).Sum(x => x.N),
+            [.. order.Select(s => new CountItem(Name(s), Name(s), groups.Where(x => x.Status == s).Sum(x => x.N)))], weekly,
+            [.. perVendor.Select(x => new CountItem(x.Key.ToString(), vendorNames.GetValueOrDefault(x.Key) ?? "—", x.N))]);
+    }
 }

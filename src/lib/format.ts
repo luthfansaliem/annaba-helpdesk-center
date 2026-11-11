@@ -29,3 +29,19 @@ export function safeReturnTo(v: string | null | undefined, fallback = "/dashboar
   if (!v || !v.startsWith("/") || v.startsWith("//") || v.startsWith("/\\") || /[\r\n\\]/.test(v) || v.startsWith("/login")) return fallback;
   return v;
 }
+
+/** Money in the organisation's currency: Rupiah without decimals ("Rp 1.250.000"), other currencies with two. */
+export function fmtMoney(amount: number | null | undefined, currency = "IDR") {
+  if (amount === null || amount === undefined) return "—";
+  const whole = currency === "IDR" || currency === "JPY";
+  try { return new Intl.NumberFormat(currency === "IDR" ? "id-ID" : formatLocale(), { style: "currency", currency, minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 }).format(amount); }
+  catch { return `${currency} ${amount.toFixed(whole ? 0 : 2)}`; }
+}
+
+/** Short money for chart axes and tiles: "Rp 1,2 jt" / "Rp 3,4 M" in Indonesian, "Rp 1.2m" in English. */
+export function fmtMoneyShort(amount: number, currency = "IDR") {
+  const id = getLang() === "id"; const abs = Math.abs(amount);
+  const unit = abs >= 1e9 ? [1e9, id ? " M" : "bn"] as const : abs >= 1e6 ? [1e6, id ? " jt" : "m"] as const : abs >= 1e3 ? [1e3, id ? " rb" : "k"] as const : [1, ""] as const;
+  const n = (amount / unit[0]).toLocaleString(formatLocale(), { maximumFractionDigits: unit[0] === 1 ? 0 : 1 });
+  return `${currency === "IDR" ? "Rp " : currency + " "}${n}${unit[1]}`;
+}

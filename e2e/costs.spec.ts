@@ -54,7 +54,7 @@ test.describe("cost and budget (R2-8)", () => {
     await page.goto("/costs");
     await page.getByLabel("Group by").selectOption("cost_center");
     const line = page.getByRole("row", { name: new RegExp(code) });
-    await expect(line).toContainText("900.00");
+    await expect(line).toContainText(/Rp\s?900(?!\d|\.)/);   // Rupiah, no decimals (docs/52)
     await expect(page.getByRole("link", { name: "Export CSV" })).toHaveAttribute("href", /report\.csv\?.*by=cost_center/);
     const csv = await (await admin.get("/api/costs/report.csv?by=cost_center")).text();
     expect(csv).toContain(`${code} · Facilities upkeep,`);

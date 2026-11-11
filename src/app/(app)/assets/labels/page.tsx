@@ -42,7 +42,7 @@ function Labels() {
         <PageHeader title={t("Asset labels")} description={t("Print these and stick them on the assets. Scanning one with a phone opens the asset, where anyone can report a problem about it.")}
           actions={<span className="row" style={{ gap: 8 }}><Button href="/assets"><ArrowLeft size={14} /> {t("Assets")}</Button><Button variant="primary" onClick={() => window.print()} disabled={!labels.data?.length}><Printer size={14} /> {t("Print")}</Button></span>} />
         {!ids && <Panel>
-          <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div className="filters">
             <Field label={t("Type")} htmlFor="lb-type"><SelectInput id="lb-type" value={typeId} onChange={(e) => setTypeId(e.target.value)} options={[{ value: "", label: t("Choose…") }, ...(types.data ?? []).map((x) => ({ value: x.id, label: x.name }))]} /></Field>
             <Field label={t("Place")} htmlFor="lb-place"><SelectInput id="lb-place" value={locationId} onChange={(e) => setLocationId(e.target.value)} options={[{ value: "", label: t("Anywhere") }, ...(places.data ?? []).map((l) => ({ value: l.id, label: l.path }))]} /></Field>
           </div>

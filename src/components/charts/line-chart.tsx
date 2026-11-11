@@ -2,11 +2,15 @@ import { useId } from "react";
 
 export type Series = { name: string; color: string; data: number[] };
 
+/** A smooth curve through the points that never overshoots them: each control point stays between its two neighbours' heights,
+ *  so a run of zeros stays flat and the line never dips below the axis (a plain Catmull-Rom curve did). */
 function smooth(pts: [number, number][]) {
   let d = `M${pts[0][0]} ${pts[0][1]}`;
+  const clamp = (v: number, a: number, b: number) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[i - 1] ?? pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] ?? p2;
-    d += ` C${p1[0] + (p2[0] - p0[0]) / 6} ${p1[1] + (p2[1] - p0[1]) / 6}, ${p2[0] - (p3[0] - p1[0]) / 6} ${p2[1] - (p3[1] - p1[1]) / 6}, ${p2[0]} ${p2[1]}`;
+    const c1y = clamp(p1[1] + (p2[1] - p0[1]) / 6, p1[1], p2[1]), c2y = clamp(p2[1] - (p3[1] - p1[1]) / 6, p1[1], p2[1]);
+    d += ` C${p1[0] + (p2[0] - p0[0]) / 6} ${c1y}, ${p2[0] - (p3[0] - p1[0]) / 6} ${c2y}, ${p2[0]} ${p2[1]}`;
   }
   return d;
 }
@@ -31,7 +35,7 @@ export function LineChart({ series, labels, max = 100, ticks = [0, 25, 50, 75, 1
       {ticks.map((v) => (
         <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} style={{ stroke: "var(--line)" }} /><text x={L - 12} y={y(v) + 4} fontSize="11" textAnchor="end" style={{ fill: "var(--ink-strong)" }}>{v}</text></g>
       ))}
-      {labels.map((l, i) => <text key={l} x={L + (i * (W - L - 6)) / (labels.length - 1)} y={H + 2} fontSize="11" textAnchor="middle" style={{ fill: "var(--ink-strong)" }}>{l}</text>)}
+      {labels.map((l, i) => <text key={l + i} x={L + (i * (W - L - 6)) / Math.max(1, labels.length - 1)} y={H + 2} fontSize="11" textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"} style={{ fill: "var(--ink-strong)" }}>{l}</text>)}
       {series.map((s, i) => ({ s, i })).reverse().map(({ s, i }) => {
         const pts = s.data.map((v, k) => [x(k), y(v)] as [number, number]);
         const line = smooth(pts);

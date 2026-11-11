@@ -14,6 +14,7 @@ import { get } from "@/lib/api/client";
 import type { BreachItem, Priority, SlaReport, SlaRow } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
+import { Bars, ChartCard } from "@/components/insights/charts";
 import { t } from "@/i18n";
 
 const tone = (p: number | null) => (p === null ? "gray" : p >= 90 ? "green" : p >= 70 ? "orange" : "red") as "gray" | "green" | "orange" | "red";
@@ -39,13 +40,23 @@ function Body({ r }: { r: SlaReport }) {
   ];
   return (
     <>
-      <section className="stats six" aria-label={t("Key metrics")}>
+      <section className="kpis" aria-label={t("Key metrics")}>
         <Kpi label={t("SLA attainment")} value={percent(r.attainmentPercent)} note={t("of tickets resolved in the period")} tone={r.attainmentPercent === null ? "default" : r.attainmentPercent >= 90 ? "good" : r.attainmentPercent >= 70 ? "warn" : "bad"} />
         <Kpi label={t("Met")} value={String(r.met)} note={t("resolved within their targets")} tone="good" />
         <Kpi label={t("Missed")} value={String(r.breached)} note={t("resolved after a target")} tone={r.breached > 0 ? "bad" : "default"} />
         <Kpi label={t("Overdue now")} value={String(r.openBreached)} note={t("open and past their SLA")} tone={r.openBreached > 0 ? "bad" : "good"} />
         <Kpi label={t("At risk now")} value={String(r.openAtRisk)} note={t("open and close to their SLA")} tone={r.openAtRisk > 0 ? "warn" : "good"} />
       </section>
+      {(r.met + r.breached) > 0 && (
+        <div className="chart-grid">
+          <ChartCard title={t("Attainment by priority")} sub={t("Share of resolved tickets that met their targets")}>
+            <Bars max={100} format={(n) => `${n}%`} color="#16a37f" items={r.byPriority.filter((x) => x.attainmentPercent !== null).map((x) => ({ label: priorityLabel(x.key as Priority), value: x.attainmentPercent ?? 0, color: (x.attainmentPercent ?? 0) >= 90 ? "#16a37f" : (x.attainmentPercent ?? 0) >= 70 ? "#f59e0b" : "#ef4444" }))} />
+          </ChartCard>
+          <ChartCard title={t("Attainment by team")} sub={t("Lowest first")}>
+            <Bars max={100} format={(n) => `${n}%`} items={r.byTeam.filter((x) => x.attainmentPercent !== null).map((x) => ({ label: x.label || t("No team"), value: x.attainmentPercent ?? 0, color: (x.attainmentPercent ?? 0) >= 90 ? "#16a37f" : (x.attainmentPercent ?? 0) >= 70 ? "#f59e0b" : "#ef4444" }))} />
+          </ChartCard>
+        </div>
+      )}
       <section className="stack">   {/* full width: three narrow tables side by side would need horizontal scrolling */}
         <Panel title={t("By priority")}><DataTable label={t("SLA by priority")} columns={rowCols(t("Priority"), (x) => priorityLabel(x.key as Priority))} rows={r.byPriority} rowKey={(x) => x.key} emptyMessage={t("No data.")} /></Panel>
         <Panel title={t("By team")}><DataTable label={t("SLA by team")} columns={rowCols(t("Team"))} rows={r.byTeam} rowKey={(x) => x.key} emptyMessage={t("No resolved tickets with an SLA in this period.")} /></Panel>

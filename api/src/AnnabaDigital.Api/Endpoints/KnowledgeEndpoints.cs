@@ -19,6 +19,7 @@ public static class KnowledgeEndpoints
 
         g.MapGet("/articles", async (string? q, Guid? categoryId, string? status, int? page, int? pageSize, KnowledgeService svc, HttpContext ctx)
             => Results.Ok(await svc.ListAsync(q, categoryId, status, page ?? 1, pageSize ?? 25, ctx.RequirePrincipal(), ctx.RequestAborted))).RequireAuthorization();
+        g.MapGet("/summary", async (KnowledgeService svc, HttpContext ctx) => Results.Ok(await svc.SummaryAsync(ctx.RequestAborted))).RequirePermission(Permissions.KbWrite);
         g.MapGet("/suggest", async (string? q, Guid? serviceId, KnowledgeService svc, HttpContext ctx) => Results.Ok(await svc.SuggestAsync(q, serviceId, ctx.RequirePrincipal(), ctx.RequestAborted))).RequireAuthorization();
         g.MapGet("/articles/{id:guid}", async (Guid id, int? version, KnowledgeService svc, HttpContext ctx) => Results.Ok(await svc.GetAsync(id, version, ctx.RequirePrincipal(), ctx.RequestAborted))).RequireAuthorization();
         g.MapPost("/articles", async (SaveKbArticleRequest body, KnowledgeService svc, HttpContext ctx) =>

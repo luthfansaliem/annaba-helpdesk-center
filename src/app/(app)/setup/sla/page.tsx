@@ -79,7 +79,7 @@ function Tester({ lookups }: { lookups: Lookups }) {
   return (
     <Panel title={t("Test a ticket")} description={t("See which policy a request would get.")}>
       <form className="stack" noValidate onSubmit={check}>
-        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           <Field label={t("Service")} htmlFor="st-svc"><SelectInput id="st-svc" value={serviceId} onChange={(e) => setServiceId(e.target.value)} placeholder={t("Choose a service")} options={lookups.services.filter((s) => !s.archived).map((s) => ({ value: s.id, label: `${s.categoryName} › ${s.name}` }))} /></Field>
           <Field label={t("Place")} htmlFor="st-loc"><SelectInput id="st-loc" value={locationId} onChange={(e) => setLocationId(e.target.value)} options={[{ value: "", label: t("Not given") }, ...lookups.locations.filter((l) => !l.archived).map((l) => ({ value: l.id, label: l.name }))]} /></Field>
           <Field label={t("Priority")} htmlFor="st-prio"><SelectInput id="st-prio" value={priority} onChange={(e) => setPriority(e.target.value as Priority)} options={[{ value: "urgent", label: t("Urgent") }, { value: "high", label: t("High") }, { value: "medium", label: t("Medium") }, { value: "low", label: t("Low") }]} /></Field>

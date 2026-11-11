@@ -61,7 +61,7 @@ export function DelegationPanel({ onChanged }: { onChanged: () => void }) {
       <form className="stack" noValidate onSubmit={submit} aria-label={t("Out of office")}>
         {err && <div className="form-alert err" role="alert">{err}</div>}
         {msg && <div className="form-alert" role="status">{msg}</div>}
-        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           <Field label={t("Who covers for you")} htmlFor="dg-to" required error={errs.delegateId}><PersonPicker id="dg-to" value={to} onChange={(v) => setTo(v ?? "")} search={search} /></Field>
           <Field label={t("From")} htmlFor="dg-from" error={errs.startsAt}><TextInput id="dg-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
           <Field label={t("Until (including)")} htmlFor="dg-until" required error={errs.endsAt}><TextInput id="dg-until" type="date" min={from || undefined} value={until} onChange={(e) => setUntil(e.target.value)} /></Field>

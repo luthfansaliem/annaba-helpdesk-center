@@ -101,7 +101,7 @@ test("an expired or revoked session sends the user to sign-in with their place r
   // the server forgets the session (as on expiry/revocation): wipe the cookie's session via sign-out from another tab
   const csrf = (await (await p.request.get("/api/auth/csrf")).json()).token as string;
   expect((await p.request.post("/api/auth/logout", { headers: { "X-CSRF-Token": csrf, Origin: WEB } })).ok()).toBeTruthy();
-  await p.getByRole("link", { name: /dashboard/i }).first().click().catch(() => p.goto("/dashboard"));
+  await p.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Home", exact: true }).click().catch(() => p.goto("/dashboard"));
   await expect(p).toHaveURL(/\/login\?.*returnTo=/);
   await c.close(); await admin.dispose();
 });

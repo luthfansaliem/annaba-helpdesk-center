@@ -42,7 +42,7 @@ test("mobile drawer opens, traps Escape, and closes after navigating", async ({ 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Open menu" })).toHaveAttribute("aria-expanded", "false");
   await page.getByRole("button", { name: "Open menu" }).click();
-  await side.getByRole("button", { name: /Identity & Access/ }).click();
+  await side.getByRole("button", { name: /Personal/ }).click();
   await side.getByRole("link", { name: "Sessions & Devices" }).click();
   await expect(page).toHaveURL(/\/sessions/);
   await expect(page.getByRole("button", { name: "Open menu" })).toHaveAttribute("aria-expanded", "false");

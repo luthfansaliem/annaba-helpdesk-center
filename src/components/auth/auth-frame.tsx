@@ -22,9 +22,9 @@ export function AuthFrame({ children, hero = true, signInLink = false }: { child
       {hero && (
         <section className="login-left">
           <Logo size={44} />
-          <span className="tag">{t("Enterprise Workspace")}</span>
-          <h1>{t("Secure access")}<br />{t("for your whole team")}</h1>
-          <p className="lead">{t("Role-based access, session control and a complete audit trail — in one place.")}</p>
+          <span className="tag">{t("General Affairs Helpdesk")}</span>
+          <h1>{t("Ask once,")}<br />{t("we take it from there")}</h1>
+          <p className="lead">{t("Repairs, rooms, supplies, visitors and vehicles: request it, follow it and rate it, while the team keeps assets, vendors and maintenance on track.")}</p>
           <Building className="building" />
         </section>
       )}

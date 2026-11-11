@@ -14,6 +14,7 @@ import { get } from "@/lib/api/client";
 import type { CsatReport, CsatRow } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
+import { Bars } from "@/components/insights/charts";
 import { t } from "@/i18n";
 
 const avg = (n: number | null) => (n === null ? "—" : n.toFixed(2));
@@ -31,10 +32,9 @@ function Report() {
   ];
   return (
     <>
-      <PageHeader title={t("Satisfaction")} description={t("How requesters rated their resolved requests (1–5), by the person, team, site or vendor that worked them.")} />
+      <PageHeader title={t("Satisfaction")} description={t("How requesters rated their resolved requests (1–5), by the person, team, site or vendor that worked them.")} actions={<PeriodSelect days={days} onChange={setDays} />} />
       <Panel>
-        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <PeriodSelect days={days} onChange={setDays} />
+        <div className="filters">
           <Field label={t("Group by")} htmlFor="cs-by"><SelectInput id="cs-by" value={by} onChange={(e) => setBy(e.target.value as CsatReport["by"])} options={[{ value: "team", label: t("Team") }, { value: "agent", label: t("Agent") }, { value: "site", label: t("Site") }, { value: "vendor", label: t("Vendor") }]} /></Field>
         </div>
       </Panel>
@@ -43,7 +43,7 @@ function Report() {
         return (
           <>
             {r.ownOnly && <div className="form-alert" role="status">{t("You see the ratings of requests you worked on.")}</div>}
-            <section className="stats" aria-label={t("Key metrics")} data-testid="cs-kpis">
+            <section className="kpis" aria-label={t("Key metrics")} data-testid="cs-kpis">
               <Kpi label={t("Average rating")} value={avg(r.average)} note={t("out of 5, from {n} ratings", { n: r.count })} tone={r.average === null ? "default" : r.average >= 4.2 ? "good" : r.average >= 3.5 ? "warn" : "bad"} />
               <Kpi label={t("Satisfied (4–5)")} value={r.satisfiedPercent === null ? "—" : `${r.satisfiedPercent}%`} />
               <Kpi label={t("Low (1–2)")} value={String(r.low)} tone={r.low > 0 ? "bad" : "default"} note={t("Team leads are alerted")} />
@@ -59,6 +59,7 @@ function Report() {
                 </table>
               </Panel>
               <Panel title={t("By {group}", { group: label.toLowerCase() })}>
+                {r.rows.some((x) => x.average !== null) && <div style={{ marginBottom: 14 }}><Bars max={5} format={(n) => n.toFixed(1)} color="#f59e0b" items={[...r.rows].filter((x) => x.average !== null).sort((a, b) => (b.average ?? 0) - (a.average ?? 0)).slice(0, 8).map((x) => ({ label: x.label, value: x.average ?? 0 }))} /></div>}
                 <DataTable label={t("Satisfaction by group")} columns={cols} rows={r.rows} rowKey={(x) => x.key} emptyMessage={t("No ratings in this period.")} />
               </Panel>
             </div>

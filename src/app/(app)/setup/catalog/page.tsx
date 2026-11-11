@@ -167,7 +167,7 @@ function Catalog() {
           : <Button variant="primary" onClick={() => setCatDrawer({ open: true, row: null })}><Plus size={16} /> {t("New category")}</Button>}</Can>} />
       <Panel>
         <Tabs label={t("Catalog sections")} value={tab} onChange={setTab} items={[{ key: "services", label: t("Services") }, { key: "categories", label: t("Categories") }]} />
-        <div className="row" style={{ gap: 12, padding: "12px 0", flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           {tab === "services" && <>
             <Field label={t("Search")} htmlFor="cg-q"><TextInput id="cg-q" value={filter} onChange={(e) => setFilter(e.target.value)} /></Field>
             <Field label={t("Category")} htmlFor="cg-cat"><SelectInput id="cg-cat" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} options={[{ value: "", label: t("All categories") }, ...ordered((cats.data ?? []).filter((c) => !c.archived)).map(({ row, depth }) => ({ value: row.id, label: `${depth ? "— " : ""}${row.name}` }))]} /></Field>

@@ -15,9 +15,10 @@ import { del, get, post, put } from "@/lib/api/client";
 import type { BudgetItem, BudgetList, CostCenterItem, CostSettings, PortalLocation, CategoryItem } from "@/lib/api/types";
 import { useQuery } from "@/lib/hooks";
 import { useRun } from "@/lib/use-run";
+import { KpiCard, KpiGrid } from "@/components/insights/kpi";
+import { fmtMoney } from "@/lib/format";
 import { t } from "@/i18n";
 
-const fmtMoney = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function BudgetDrawer({ open, year, editing, onClose, onDone }: { open: boolean; year: number; editing: BudgetItem | null; onClose: () => void; onDone: (l: BudgetList) => void }) {
   const run = useRun();
@@ -87,10 +88,23 @@ function Budgets() {
     <>
       <PageHeader title={t("Budgets")} description={t("A year's budget per site, cost centre or service category, against the costs recorded that year.")}
         actions={<Can perm="budgets.manage"><Button variant="primary" onClick={() => setDrawer({ open: true, row: null })}><Plus size={16} /> {t("New budget")}</Button></Can>} />
-      <Panel>
+      <div className="filters">
         <Field label={t("Year")} htmlFor="bl-year"><SelectInput id="bl-year" value={String(year)} onChange={(e) => setYear(Number(e.target.value))} options={[-2, -1, 0, 1].map((d) => { const y = new Date().getFullYear() + d; return { value: String(y), label: String(y) }; })} /></Field>
-      </Panel>
+      </div>
       <QueryBoundary q={q}>{(l) => (
+        <>
+        {l.items.length > 0 && (() => {
+          const amount = l.items.reduce((a, b) => a + b.amount, 0); const spent = l.items.reduce((a, b) => a + b.spent, 0);
+          const used = amount > 0 ? Math.round((100 * spent) / amount) : 0; const over = l.items.filter((b) => b.state === "over").length; const near = l.items.filter((b) => b.state === "near").length;
+          return (
+            <KpiGrid label={t("Budgets at a glance")}>
+              <KpiCard label={t("Budgeted")} value={fmtMoney(amount, l.currency)} note={t("{n} budgets in {year}", { n: l.items.length, year: l.year })} />
+              <KpiCard label={t("Spent so far")} value={fmtMoney(spent, l.currency)} note={t("{p}% of the total", { p: used })} tone={used >= 100 ? "bad" : used >= 80 ? "warn" : "default"} />
+              <KpiCard label={t("Near the limit")} value={String(near)} note={t("80% or more used")} tone={near > 0 ? "warn" : "default"} />
+              <KpiCard label={t("Used up")} value={String(over)} note={t("100% or more used")} tone={over > 0 ? "bad" : "good"} />
+            </KpiGrid>
+          );
+        })()}
         <Panel title={t("Budgets for {year}", { year: l.year })} description={t("Amounts in {currency}.", { currency: l.currency })}>
           {l.items.length === 0 ? <p className="tab-placeholder" style={{ margin: 0 }}>{t("No budgets for this year.")}</p>
             : <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0 }} aria-label={t("Budgets")}>{l.items.map((b) => (
@@ -99,7 +113,7 @@ function Budgets() {
                   <span><b>{b.scopeName}</b> <small className="sub">{scopeLabel(b.scope)}</small> {b.state === "over" ? <Badge tone="red">{t("Used up")}</Badge> : b.state === "near" ? <Badge tone="orange">{t("Near the limit")}</Badge> : <Badge tone="green">{t("On track")}</Badge>}
                     {b.note && <><br /><small className="sub">{b.note}</small></>}</span>
                   <span className="row" style={{ gap: 6 }}>
-                    <span>{t("{spent} of {amount} ({percent}%)", { spent: fmtMoney(b.spent), amount: fmtMoney(b.amount), percent: b.percent })}</span>
+                    <span>{t("{spent} of {amount} ({percent}%)", { spent: fmtMoney(b.spent, l.currency), amount: fmtMoney(b.amount, l.currency), percent: b.percent })}</span>
                     {l.canManage && <>
                       <IconButton label={`${t("Edit")} ${b.scopeName}`} onClick={() => setDrawer({ open: true, row: b })}><Pencil size={14} /></IconButton>
                       <IconButton label={`${t("Remove")} ${b.scopeName}`} onClick={() => setConfirm({ title: t("Remove {what}?", { what: b.scopeName }), confirmLabel: t("Remove"), danger: true, body: t("This can't be undone."),
@@ -112,6 +126,7 @@ function Budgets() {
                 </div>
               </li>))}</ul>}
         </Panel>
+        </>
       )}</QueryBoundary>
       <Can perm="budgets.manage"><SettingsPanel /></Can>
       <BudgetDrawer open={drawer.open} year={year} editing={drawer.row} onClose={() => setDrawer({ open: false, row: null })} onDone={(l) => { if (l.year === year) q.setData(l); else setYear(l.year); }} />

@@ -143,6 +143,8 @@ Vendor portal: migration `VendorPortal`; the Vendor role is added to existing or
 
 Verified on 2026-11-11 (commit `b79e7e9`, first deploy about 7 minutes): Let's Encrypt certificate issued; `/login` 200, `/api/auth/me` 401 and `/api/v1/tickets` 401 through the UI proxy; HSTS, CSP and `X-Frame-Options` headers present; all 38 migrations applied and the bootstrap invitation queued; `clamd` started; the backup service wrote both the first dump and the files archive (`.files.tgz`), which closes the open "not verified on Coolify" item from slice 14. Harmless log lines: Npgsql's `libgssapi_krb5.so.2` notice (Kerberos isn't used); the failed `__EFMigrationsHistory` query on the very first start (the table didn't exist yet); and an ASP.NET Data Protection warning that its keys aren't persisted (nothing in this app relies on them across restarts). Not yet verified: that the invitation reached the inbox.
 
+UI redesign (doc 53): needs a push to `main` and a redeploy in Coolify (Auto Deploy is off). No migration and no new variables. `scripts/demo-data.mjs` now fills every module; run it only against development or staging (`--web <url> --yes`), never production.
+
 After the first start: accept the invitation, set a password and enrol MFA; clear `BOOTSTRAP_ADMIN_EMAIL`; turn on **Auto Deploy** if pushes to `main` should redeploy; add an uptime check on `/login`; copy backups off the VPS (`deploy/pull-backups.sh`).
 
 ## Deploying on the VPS through Coolify

@@ -53,7 +53,7 @@ function LoginForm() {
 
   return (
     <AuthFrame>
-      <AuthHeading title={t("Welcome back 👋")} sub={t("Sign in to your Annaba Digital Workspace")} />
+      <AuthHeading title={t("Welcome back 👋")} sub={t("Sign in to Annaba Helpdesk")} />
       {params.get("expired") && <div className="form-alert warn" role="status"><Info size={16} /> {t("Your session expired. Sign in again to continue.")}</div>}
       {params.get("reset") && <div className="form-alert ok" role="status">{t("Password updated. Sign in with your new password.")}</div>}
       {params.get("accepted") && <div className="form-alert ok" role="status">{t("Account activated. Sign in to continue.")}</div>}

@@ -16,6 +16,7 @@ import { get } from "@/lib/api/client";
 import type { AssetListItem, AssetTypeItem, Paged, PortalLocation } from "@/lib/api/types";
 import { useQuery } from "@/lib/hooks";
 import { useRun } from "@/lib/use-run";
+import { AssetInsights } from "@/components/insights/modules";
 import { t } from "@/i18n";
 
 type Filters = { q: string; typeId: string; status: string; locationId: string; warranty: string; frequent: boolean };
@@ -61,8 +62,9 @@ function Register() {
           <Can perm="assets.import"><Button href="/assets/import"><Upload size={14} /> {t("Import")}</Button></Can>
           <Can perm="assets.manage"><Button variant="primary" onClick={() => setAdding(true)}><Plus size={16} /> {t("New asset")}</Button></Can>
         </span>} />
+      <AssetInsights onAdd={() => setAdding(true)} />
       <Panel>
-        <div className="row" style={{ gap: 12, paddingBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           <Field label={t("Search")} htmlFor="ar-q"><TextInput id="ar-q" placeholder={t("Tag, name or serial")} value={f.q} onChange={(e) => set("q", e.target.value)} /></Field>
           <Field label={t("Type")} htmlFor="ar-type"><SelectInput id="ar-type" value={f.typeId} onChange={(e) => set("typeId", e.target.value)} options={[{ value: "", label: t("All types") }, ...(types.data ?? []).map((x) => ({ value: x.id, label: x.name }))]} /></Field>
           <Field label={t("Status")} htmlFor="ar-status"><SelectInput id="ar-status" value={f.status} onChange={(e) => set("status", e.target.value)} options={[{ value: "", label: t("In service") }, { value: "all", label: t("All, including retired") }, ...ASSET_STATUSES.map((s) => ({ value: s, label: assetStatusLabel(s) }))]} /></Field>

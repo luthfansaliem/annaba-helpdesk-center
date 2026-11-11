@@ -35,7 +35,7 @@ function Body({ r }: { r: OperationsReport }) {
   ];
   return (
     <>
-      <section className="stats six" aria-label={t("Key metrics")}>
+      <section className="kpis" aria-label={t("Key metrics")}>
         <Kpi label={t("Open")} value={String(k.open)} note={t("tickets in the backlog")} />
         <Kpi label={t("Overdue")} value={String(k.overdue)} note={t("open and past their SLA")} tone={k.overdue > 0 ? "bad" : "good"} />
         <Kpi label={t("At risk")} value={String(k.atRisk)} note={t("close to their SLA")} tone={k.atRisk > 0 ? "warn" : "good"} />
@@ -43,7 +43,7 @@ function Body({ r }: { r: OperationsReport }) {
         <Kpi label={t("Waiting for approval")} value={String(k.pendingApproval)} note={t("not started yet")} />
         <Kpi label={t("SLA attainment")} value={percent(k.slaAttainmentPercent)} note={t("of tickets resolved in the period")} tone={k.slaAttainmentPercent === null ? "default" : k.slaAttainmentPercent >= 90 ? "good" : k.slaAttainmentPercent >= 70 ? "warn" : "bad"} />
       </section>
-      <section className="stats six" aria-label={t("Flow and speed")}>
+      <section className="kpis" aria-label={t("Flow and speed")}>
         <Kpi label={t("Created")} value={String(k.created)} note={t("in the period")} />
         <Kpi label={t("Resolved")} value={String(k.resolved)} note={t("in the period")} />
         <Kpi label={t("Avg first response")} value={minutes(k.avgFirstResponseMinutes)} note={t("clock time, tickets created in the period")} />

@@ -1,6 +1,6 @@
 export type DonutSegment = { label: string; value: number; color: string };
 
-export function DonutChart({ segments, centerLabel, label }: { segments: DonutSegment[]; centerLabel: string; label?: string }) {
+export function DonutChart({ segments, centerLabel, label, centerValue }: { segments: DonutSegment[]; centerLabel: string; label?: string; centerValue?: string }) {
   const total = segments.reduce((a, s) => a + s.value, 0);
   const r = 62, c = 2 * Math.PI * r;
   let off = 0;
@@ -14,12 +14,12 @@ export function DonutChart({ segments, centerLabel, label }: { segments: DonutSe
           return el;
         })}
       </g>
-      <text x="80" y="82" textAnchor="middle" fontSize="26" fontWeight="800" style={{ fill: "var(--navy)" }}>{total}</text>
+      <text x="80" y="82" textAnchor="middle" fontSize={centerValue && centerValue.length > 6 ? 17 : 26} fontWeight="800" style={{ fill: "var(--navy)" }}>{centerValue ?? total}</text>
       <text x="80" y="100" textAnchor="middle" fontSize="11" style={{ fill: "var(--muted)" }}>{centerLabel}</text>
     </svg>
   );
 }
 
-export function DonutLegend({ segments }: { segments: DonutSegment[] }) {
-  return <ul className="donut-legend">{segments.map((s) => <li key={s.label}><i className="dot" style={{ background: s.color }} />{s.label}<b>{s.value}</b></li>)}</ul>;
+export function DonutLegend({ segments, format = String }: { segments: DonutSegment[]; format?: (n: number) => string }) {
+  return <ul className="donut-legend">{segments.map((s) => <li key={s.label}><i className="dot" style={{ background: s.color }} />{s.label}<b>{format(s.value)}</b></li>)}</ul>;
 }

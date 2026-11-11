@@ -193,7 +193,7 @@ test("compact sidebar keeps the menu groups (labelled sections with dividers)", 
   await page.goto("/dashboard");
   await page.getByRole("button", { name: "Collapse menu" }).click();
   const nav = page.getByRole("navigation", { name: "Main navigation" });
-  for (const g of ["Identity & Access", "Monitoring", "Personal", "Administration"]) await expect(nav.getByRole("group", { name: g })).toBeVisible();
+  for (const g of ["Service desk", "Insights", "People & access", "Personal", "Administration"]) await expect(nav.getByRole("group", { name: g })).toBeVisible();
   await expect(nav.getByRole("group", { name: "Administration" }).getByRole("link", { name: "Tenants" })).toBeVisible();
   await page.getByRole("button", { name: /Expand menu/i }).click();
 });
@@ -384,7 +384,7 @@ test.describe("bahasa Indonesia", () => {
       await page.getByRole("button", { name: "Save settings" }).click();
       await expect(page.getByRole("navigation", { name: "Navigasi utama" })).toBeVisible();
       await page.goto("/dashboard");
-      await expect(page.getByRole("link", { name: "Dasbor" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Beranda" })).toBeVisible();
       await page.goto("/users/all");
       await expect(page.getByRole("heading", { name: "Semua Pengguna" })).toBeVisible();
       await expect(page.getByLabel("Cari pengguna")).toBeVisible();

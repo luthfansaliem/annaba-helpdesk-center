@@ -16,6 +16,7 @@ import { VendorDrawer } from "@/components/vendors/vendor-bits";
 import { get } from "@/lib/api/client";
 import type { Paged, PortalLocation, VendorListItem } from "@/lib/api/types";
 import { useQuery } from "@/lib/hooks";
+import { VendorInsights } from "@/components/insights/modules";
 import { t } from "@/i18n";
 
 function Directory() {
@@ -34,8 +35,9 @@ function Directory() {
     <>
       <PageHeader title={t("Vendors")} description={t("The companies you buy services from: who to call, where they work, their contracts and how their work goes.")}
         actions={<Can perm="vendors.manage"><Button variant="primary" onClick={() => setAdding(true)}><Plus size={16} /> {t("New vendor")}</Button></Can>} />
+      <VendorInsights onAdd={() => setAdding(true)} />
       <Panel>
-        <div className="row" style={{ gap: 12, paddingBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           <Field label={t("Search")} htmlFor="vl-q"><TextInput id="vl-q" placeholder={t("Name or what they do")} value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} /></Field>
           <Field label={t("Status")} htmlFor="vl-status"><SelectInput id="vl-status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} options={[{ value: "active", label: t("Active") }, { value: "blocked", label: t("Blocked") }, { value: "all", label: t("All") }]} /></Field>
           <Field label={t("Covers")} htmlFor="vl-place"><SelectInput id="vl-place" value={place} onChange={(e) => { setPlace(e.target.value); setPage(1); }} options={[{ value: "", label: t("Anywhere") }, ...(places.data ?? []).map((l) => ({ value: l.id, label: l.path }))]} /></Field>

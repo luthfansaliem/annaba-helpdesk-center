@@ -414,4 +414,14 @@ Webhook events: `ticket.created`, `ticket.status_changed` (`extra: { from, to, a
 
 A vendor's person reaches only `/api/auth`, `/api/me`, `/api/sessions/me`, `/api/notifications`, `/api/work-orders`, `/api/settings/public` and `/api/avatars`; anything else is `403` ("Vendor accounts can only see their company's work orders."). On work orders their scope is the vendor's work orders: they list, read and work them (start/hold/resume, checklist, photos, time, complete) without becoming the assignee; `mine=true` means their company's work.
 
+### 12.20 Module summaries (UI review, doc 52)
+Read-only numbers for the analytics above each module list. Each uses the module's read permission and the same scope as its list; every count is done by the database.
+| Route | Who | Returns |
+|---|---|---|
+| `GET /api/work-orders/summary` | `workorders.read` | over the work orders the person may see (a vendor's person: their company's): `open`, `overdue`, `dueThisWeek`, `done30`, `onTime30`, `late30`, `avgCompletionHours` (done in 90 days, from creation), `inHouseOpen`, `vendorOpen`, `byStatus` (open, in_progress, on_hold), `weekly[12]` `{week, created, done}`, `byVendor` (top 6 open) |
+| `GET /api/assets/summary` | `assets.read` | `active`, `retired`, `warrantyExpired`, `warranty30`, `warranty90`, `unplaced`, `value` (purchase cost in service), `pmDue30`, `byStatus`, `byType` (top 8), `bySite` (top 8, a place counts for its site), `mostTickets` (top 5 in 12 months) |
+| `GET /api/vendors/summary` | `vendors.read` | `active`, `blocked`, `contractsActive`, `contractsExpiring60`, `openWorkOrders`, `overdueWorkOrders`, `spend12Months`, `top[8]` `{id, name, workOrders, done, open, onTime, late, spend, rating, ratings}`. Money (`spend*`) is `null` without `workorders.costs` |
+| `GET /api/maintenance/summary` | `pm.read` | `active`, `paused`, `due7`, `due30`, `overdueVisits`, `last90` and `monthly[6]` (compliance rows: planned, onTime, late, open, overdue, missed, cancelled, percent), `upcoming[6]` `{id, name, nextDueOn}` |
+| `GET /api/kb/summary` | `kb.write` | `published`, `drafts`, `archived`, `reviewDue`, `views`, `deflections`, `helpful`, `notHelpful`, `top[5]` `{id, title, views, deflections, helpfulPercent}`, `byCategory` (published) |
+
 Form field model (`FormField`): `key` (`^[a-z][a-z0-9_]{0,39}$`, unique), `type` (`text` `long_text` `number` `date` `datetime` `select` `multi_select` `yes_no` `location` `user` `file`), `label`, `help?`, `required?`, `options?[{value,label}]`, `min?` `max?` (number), `maxLength?` (text), `pattern?` (short text), `visibleWhen?{field, op: equals|not_equals|in|filled|empty, values?}` — a condition may only look at an earlier question.

@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, use, useState } from "react";
+import { Fragment, Suspense, use, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Paperclip, Pencil, Trash2, UserPlus } from "lucide-react";
+import { ArrowLeft, Paperclip, Pencil, Send, Trash2, Upload, UserPlus } from "lucide-react";
 import { Panel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -166,11 +166,11 @@ function Comment({ ticket, onDone }: { ticket: TicketDetail; onDone: () => void 
   return (
     <form className="stack" noValidate onSubmit={submit}>
       {err && <div className="form-alert err" role="alert">{err}</div>}
-      <Field label={t("Add a comment")} htmlFor="tk-comment"><textarea id="tk-comment" rows={3} maxLength={4000} className="textarea" value={body} onChange={(e) => setBody(e.target.value)} /></Field>
-      <span className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-        <Button variant="primary" type="submit" disabled={busy || !body.trim()}>{busy ? t("Sending…") : internal ? t("Add internal note") : t("Send comment")}</Button>
-        {ticket.canCommentInternal && <label className="row" style={{ gap: 8 }}><Checkbox checked={internal} onChange={(e) => setInternal(e.target.checked)} /> {t("Internal note (requester will not see it)")}</label>}
-      </span>
+      <Field label={t("Add a comment")} htmlFor="tk-comment"><textarea id="tk-comment" rows={4} maxLength={4000} className="textarea" value={body} onChange={(e) => setBody(e.target.value)} /></Field>
+      <div className="compose-actions">
+        {ticket.canCommentInternal ? <label className="chk"><Checkbox checked={internal} onChange={(e) => setInternal(e.target.checked)} /> {t("Internal note (requester will not see it)")}</label> : <span />}
+        <Button variant="primary" type="submit" disabled={busy || !body.trim()}><Send size={14} /> {busy ? t("Sending…") : internal ? t("Add internal note") : t("Send comment")}</Button>
+      </div>
     </form>
   );
 }
@@ -205,8 +205,11 @@ function Attachments({ ticket, onDone }: { ticket: TicketDetail; onDone: () => v
         ))}
       </ul>}
       {ticket.canAttach && <div className="stack" style={{ marginTop: ticket.attachments.length ? 12 : 0, gap: 6 }}>
-        <Field label={t("Add files")} htmlFor="tk-files"><input id="tk-files" type="file" multiple accept={FILE_ACCEPT} onChange={pick} disabled={busy} /></Field>
-        <small className="sub">{t("Photos, PDF, Office documents and text, up to 8 MB each.")}</small>
+        <label className="dropzone" htmlFor="tk-files">
+          <Upload size={18} aria-hidden />
+          <span><b>{t("Add files")}</b><br /><small className="sub">{t("Click or drop photos, PDF, Office documents and text, up to 8 MB each.")}</small></span>
+          <input id="tk-files" type="file" multiple accept={FILE_ACCEPT} onChange={pick} disabled={busy} aria-label={t("Add files")} />
+        </label>
         {busy && <small className="sub" role="status">{t("Uploading…")}</small>}
         {problem && <p className="field-error" role="alert">{problem}</p>}
       </div>}
@@ -218,17 +221,18 @@ function Attachments({ ticket, onDone }: { ticket: TicketDetail; onDone: () => v
 function Detail({ id }: { id: string }) {
   const q = useQuery(() => get<TicketDetail>(`/api/tickets/${id}`), [id]); const { can } = useAuth();
   const created = useSearchParams().get("created") === "1";
+  const staff = can("tickets.read_team");
   const [action, setAction] = useState<TicketAction | null>(null); const [assign, setAssign] = useState(false); const [edit, setEdit] = useState(false); const [deciding, setDeciding] = useState<Deciding | null>(null);
   return (
     <QueryBoundary q={q}>{(tk) => (
       <>
-        <div className="crud-top">
-          <div>
-            <Link href="/requests" className="back-link"><ArrowLeft size={14} /> {t("My requests")}</Link>
-            <h1>{tk.number} · {tk.subject}</h1>
-            <p>{tk.serviceName}</p>
+        <div className="tk-head">
+          <div style={{ minWidth: 0 }}>
+            {staff ? <Link href="/tickets" className="back-link"><ArrowLeft size={14} /> {t("Ticket Queue")}</Link> : <Link href="/requests" className="back-link"><ArrowLeft size={14} /> {t("My requests")}</Link>}
+            <span className="num">{tk.serviceName}</span>
+            <h1><span className="tk-no">{tk.number}</span> · {tk.subject}</h1>
           </div>
-          <span className="row" style={{ gap: 8 }}><SlaBadge state={tk.sla?.state} /><PriorityBadge priority={tk.priority} /><TicketStatusBadge status={tk.status} /></span>
+          <span className="row" style={{ gap: 8 }}><TicketStatusBadge status={tk.status} /><PriorityBadge priority={tk.priority} /><SlaBadge state={tk.sla?.state} /></span>
         </div>
         {created && <div className="form-alert" role="status">{t("Your request has been sent. We will keep you posted here.")}</div>}
         {tk.anonymisedAt && <div className="form-alert warn" role="status">
@@ -243,18 +247,12 @@ function Detail({ id }: { id: string }) {
           </span>
         </div>}
 
-        <span className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-          {tk.allowed.filter((a) => a !== "assign").map((a) => <Button key={a} variant={a === "cancel" ? "danger-outline" : a === "reopen" || a === "hold" ? "outline" : "primary"} onClick={() => setAction(a)}>{actionLabel(a)}</Button>)}
-          {tk.canAssign && <Button onClick={() => setAssign(true)}><UserPlus size={14} /> {tk.assigneeId ? t("Reassign") : t("Assign")}</Button>}
-          {tk.canEdit && <Button onClick={() => setEdit(true)}><Pencil size={14} /> {t("Edit")}</Button>}
-        </span>
-
-        <div className="grid-2" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", alignItems: "start" }}>
-          <div className="stack">
+        <div className="tk-layout">
+          <div className="tk-main">
             <Panel title={t("Details")}>
-              {tk.description && <p style={{ whiteSpace: "pre-wrap" }}>{tk.description}</p>}
-              {tk.answers.length > 0 && <dl className="stack" style={{ margin: 0 }}>
-                {tk.answers.map((a) => <div key={a.key}><dt><b>{a.label}</b></dt><dd style={{ margin: 0 }}>{answerText(a)}</dd></div>)}
+              {tk.description && <p style={{ whiteSpace: "pre-wrap", marginBottom: tk.answers.length ? 12 : 0 }}>{tk.description}</p>}
+              {tk.answers.length > 0 && <dl className="props">
+                {tk.answers.map((a) => <Fragment key={a.key}><dt>{a.label}</dt><dd>{answerText(a)}</dd></Fragment>)}
               </dl>}
               {!tk.description && tk.answers.length === 0 && <p className="tab-placeholder">{t("No further details.")}</p>}
             </Panel>
@@ -272,34 +270,43 @@ function Detail({ id }: { id: string }) {
                 ))}
               </ul>
             </Panel>}
-            {can("workorders.read") && !tk.anonymisedAt && <TicketWorkOrdersPanel ticket={tk} onChange={q.reload} />}
-            {(tk.attachments.length > 0 || tk.canAttach) && <Attachments ticket={tk} onDone={q.reload} />}
             <Panel title={t("Activity")}>
               <ol className="stack" style={{ listStyle: "none", margin: 0, padding: 0 }}>{tk.timeline.map((e) => <Entry key={e.id} e={e} />)}</ol>
-              {tk.canComment && <div style={{ marginTop: 16 }}><Comment ticket={tk} onDone={q.reload} /></div>}
+              {tk.canComment && <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" }}><Comment ticket={tk} onDone={q.reload} /></div>}
             </Panel>
+            {can("workorders.read") && !tk.anonymisedAt && <TicketWorkOrdersPanel ticket={tk} onChange={q.reload} />}
+            {(tk.attachments.length > 0 || tk.canAttach) && <Attachments ticket={tk} onDone={q.reload} />}
           </div>
-          <Panel title={t("Summary")}>
-            <dl className="stack" style={{ margin: 0 }}>
-              <div><dt><b>{t("Requester")}</b></dt><dd style={{ margin: 0 }}>{tk.requesterName ?? "—"}{tk.createdByName && tk.createdByName !== tk.requesterName ? <small> ({t("filed by {name}", { name: tk.createdByName })})</small> : null}</dd></div>
-              <div><dt><b>{t("Assigned to")}</b></dt><dd style={{ margin: 0 }}>{tk.assigneeName ?? t("Nobody yet")}{tk.teamName ? <small> · {tk.teamName}</small> : null}</dd></div>
-              <div><dt><b>{t("Location")}</b></dt><dd style={{ margin: 0 }}>{tk.locationName ?? "—"}</dd></div>
-              {tk.asset && <div><dt><b>{t("Asset")}</b></dt><dd style={{ margin: 0 }}>{can("assets.read") ? <Link href={`/assets/${tk.asset.id}`}>{tk.asset.tag} · {tk.asset.name}</Link> : <>{tk.asset.tag} · {tk.asset.name}</>}{tk.asset.retired && <small> ({t("retired")})</small>}</dd></div>}
-              <div><dt><b>{t("Created")}</b></dt><dd style={{ margin: 0 }}>{fmtDateTime(tk.createdAt)}</dd></div>
-              <div><dt><b>{t("Last update")}</b></dt><dd style={{ margin: 0 }}>{fmtDateTime(tk.updatedAt)}</dd></div>
-              {tk.reopenCount > 0 && <div><dt><b>{t("Reopened")}</b></dt><dd style={{ margin: 0 }}>{tk.reopenCount}×</dd></div>}
-              {!tk.sla && tk.expectedBy && tk.status !== "closed" && tk.status !== "cancelled" && <div><dt><b>{t("Expected by")}</b></dt><dd style={{ margin: 0 }}>{fmtDateTime(tk.expectedBy)}</dd></div>}
-            </dl>
-          </Panel>
-          {tk.canHold && !tk.anonymisedAt && <LegalHoldPanel ticket={tk} onDone={q.reload} />}
-          {tk.sla && <Panel title={t("Service level")} description={tk.sla.policyName ?? undefined}>
-            <dl className="stack" style={{ margin: 0 }}>
-              <div><dt><b>{t("State")}</b></dt><dd style={{ margin: 0 }}><SlaBadge state={tk.sla.state} /> {tk.sla.pausedAt && <small>{t("clock stopped since {when}", { when: fmtDateTime(tk.sla.pausedAt) })}</small>}</dd></div>
-              <div><dt><b>{t("First response")}</b></dt><dd style={{ margin: 0 }}>{tk.sla.firstRespondedAt ? `${t("given")} ${fmtDateTime(tk.sla.firstRespondedAt)}` : tk.sla.firstResponseDueAt ? `${t("due")} ${fmtDateTime(tk.sla.firstResponseDueAt)}` : "—"} <small>({t("target")} {fmtMinutes(tk.sla.firstResponseMinutes)})</small></dd></div>
-              <div><dt><b>{t("Resolution")}</b></dt><dd style={{ margin: 0 }}>{tk.sla.resolutionDueAt ? `${t("due")} ${fmtDateTime(tk.sla.resolutionDueAt)}` : "—"} <small>({t("target")} {fmtMinutes(tk.sla.resolutionMinutes)})</small></dd></div>
-              {tk.sla.breachedAt && <div><dt><b>{t("Breached")}</b></dt><dd style={{ margin: 0 }}>{fmtDateTime(tk.sla.breachedAt)}</dd></div>}
-            </dl>
-          </Panel>}
+          <aside className="tk-side" aria-label={t("Ticket facts and actions")}>
+            {(tk.allowed.some((x) => x !== "assign") || tk.canAssign || tk.canEdit) && <Panel title={t("Actions")}>
+              <div className="btn-group">
+                {tk.allowed.filter((x) => x !== "assign").map((x) => <Button key={x} variant={x === "cancel" ? "danger-outline" : x === "reopen" || x === "hold" ? "outline" : "primary"} onClick={() => setAction(x)}>{actionLabel(x)}</Button>)}
+                {tk.canAssign && <Button onClick={() => setAssign(true)}><UserPlus size={14} /> {tk.assigneeId ? t("Reassign") : t("Assign")}</Button>}
+                {tk.canEdit && <Button onClick={() => setEdit(true)}><Pencil size={14} /> {t("Edit")}</Button>}
+              </div>
+            </Panel>}
+            <Panel title={t("Summary")}>
+              <dl className="props">
+                <dt>{t("Requester")}</dt><dd>{tk.requesterName ?? "—"}{tk.createdByName && tk.createdByName !== tk.requesterName ? <small> ({t("filed by {name}", { name: tk.createdByName })})</small> : null}</dd>
+                <dt>{t("Assigned to")}</dt><dd>{tk.assigneeName ?? t("Nobody yet")}{tk.teamName ? <small className="sub"> · {tk.teamName}</small> : null}</dd>
+                <dt>{t("Location")}</dt><dd>{tk.locationName ?? "—"}</dd>
+                {tk.asset && <><dt>{t("Asset")}</dt><dd>{can("assets.read") ? <Link href={`/assets/${tk.asset.id}`}>{tk.asset.tag} · {tk.asset.name}</Link> : <>{tk.asset.tag} · {tk.asset.name}</>}{tk.asset.retired && <small> ({t("retired")})</small>}</dd></>}
+                <dt>{t("Created")}</dt><dd>{fmtDateTime(tk.createdAt)}</dd>
+                <dt>{t("Last update")}</dt><dd>{fmtDateTime(tk.updatedAt)}</dd>
+                {tk.reopenCount > 0 && <><dt>{t("Reopened")}</dt><dd>{tk.reopenCount}×</dd></>}
+                {!tk.sla && tk.expectedBy && tk.status !== "closed" && tk.status !== "cancelled" && <><dt>{t("Expected by")}</dt><dd>{fmtDateTime(tk.expectedBy)}</dd></>}
+              </dl>
+            </Panel>
+            {tk.sla && <Panel title={t("Service level")} description={tk.sla.policyName ?? undefined}>
+              <dl className="props">
+                <dt>{t("State")}</dt><dd><SlaBadge state={tk.sla.state} /> {tk.sla.pausedAt && <small className="sub">{t("clock stopped since {when}", { when: fmtDateTime(tk.sla.pausedAt) })}</small>}</dd>
+                <dt>{t("First response")}</dt><dd>{tk.sla.firstRespondedAt ? `${t("given")} ${fmtDateTime(tk.sla.firstRespondedAt)}` : tk.sla.firstResponseDueAt ? `${t("due")} ${fmtDateTime(tk.sla.firstResponseDueAt)}` : "—"} <small className="sub">({t("target")} {fmtMinutes(tk.sla.firstResponseMinutes)})</small></dd>
+                <dt>{t("Resolution")}</dt><dd>{tk.sla.resolutionDueAt ? `${t("due")} ${fmtDateTime(tk.sla.resolutionDueAt)}` : "—"} <small className="sub">({t("target")} {fmtMinutes(tk.sla.resolutionMinutes)})</small></dd>
+                {tk.sla.breachedAt && <><dt>{t("Breached")}</dt><dd>{fmtDateTime(tk.sla.breachedAt)}</dd></>}
+              </dl>
+            </Panel>}
+            {tk.canHold && !tk.anonymisedAt && <LegalHoldPanel ticket={tk} onDone={q.reload} />}
+          </aside>
         </div>
         <DecideDialog deciding={deciding} onClose={() => setDeciding(null)} onDone={q.reload} />
         <ActionDialog ticket={tk} action={action} onClose={() => setAction(null)} onDone={q.reload} />

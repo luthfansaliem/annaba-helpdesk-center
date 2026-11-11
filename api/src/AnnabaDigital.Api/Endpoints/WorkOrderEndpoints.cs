@@ -22,6 +22,7 @@ public static class WorkOrderEndpoints
         var g = app.MapGroup("/api/work-orders");
         g.MapGet("/", async (bool? mine, string? status, int? page, int? pageSize, WorkOrderService svc, HttpContext ctx)
             => Results.Ok(await svc.ListAsync(mine ?? false, status, page ?? 1, pageSize ?? 25, ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);
+        g.MapGet("/summary", async (WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.SummaryAsync(ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);
         g.MapGet("/{id:guid}", async (Guid id, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.GetAsync(id, ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);
         g.MapPut("/{id:guid}", async (Guid id, SaveWorkOrderRequest body, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.UpdateAsync(id, body, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersManage);
         g.MapPost("/{id:guid}/action", async (Guid id, WorkOrderActionRequest body, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.ActAsync(id, body, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);

@@ -34,7 +34,7 @@ export default function MyRequestsPage() {
       <PageHeader help="follow-your-requests" title={t("My requests")} description={t("Everything you have asked for, and where it stands.")}
         actions={<Button variant="primary" href="/requests/new"><Plus size={16} /> {t("New request")}</Button>} />
       <Panel>
-        <div className="row" style={{ gap: 12, paddingBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           <Field label={t("Search")} htmlFor="rq-q"><TextInput id="rq-q" placeholder={t("Number or subject")} value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} /></Field>
           <Field label={t("Show")} htmlFor="rq-st">
             <SelectInput id="rq-st" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} options={[{ value: "open", label: t("Open requests") }, { value: "", label: t("All requests") }, { value: "closed", label: t("Closed") }, { value: "cancelled", label: t("Cancelled") }]} />

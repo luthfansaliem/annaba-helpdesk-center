@@ -23,6 +23,7 @@ public static class AssetEndpoints
         var g = app.MapGroup("/api/assets");
         g.MapGet("/", async (string? q, Guid? typeId, string? status, Guid? locationId, Guid? assignedToId, int? warrantyWithinDays, bool? frequent, int? page, int? pageSize, AssetService svc, HttpContext ctx)
             => Results.Ok(await svc.ListAsync(new AssetQuery(q, typeId, status, locationId, assignedToId, warrantyWithinDays, page ?? 1, pageSize ?? 25, frequent), ctx.RequestAborted))).RequirePermission(Permissions.AssetsRead);
+        g.MapGet("/summary", async (AssetService svc, HttpContext ctx) => Results.Ok(await svc.SummaryAsync(ctx.RequestAborted))).RequirePermission(Permissions.AssetsRead);
         // AST-002: what a scanned label (tag) or a "report a problem" link (id) points to. Anyone signed in to the organisation may read this much.
         g.MapGet("/card", async (string? tag, Guid? id, AssetService svc, HttpContext ctx) => Results.Ok(await svc.CardAsync(tag, id, ctx.RequirePrincipal(), ctx.RequestAborted))).RequireAuthorization();
         g.MapGet("/labels", async (string? ids, string? q, Guid? typeId, string? status, Guid? locationId, AssetService svc, HttpContext ctx) =>

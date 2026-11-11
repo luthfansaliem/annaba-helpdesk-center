@@ -13,7 +13,7 @@ test.describe("notification settings (NTF-002)", () => {
 
   test("a person chooses what reaches them in the app and by e-mail, and can go back to the usual", async ({ page }) => {
     await page.goto("/notifications");
-    await page.getByRole("link", { name: "Settings" }).click();
+    await page.getByRole("main").getByRole("link", { name: "Settings" }).click();   // the menu has a Settings link of its own
     await expect(page.getByRole("heading", { name: "Notification settings", level: 1 })).toBeVisible();
 
     const app = page.getByRole("checkbox", { name: "Work starts on your request — In the app" });

@@ -15,6 +15,7 @@ import type { Paged, WorkOrderListItem } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
+import { WorkOrderInsights } from "@/components/insights/modules";
 import { t } from "@/i18n";
 
 function List() {
@@ -33,8 +34,9 @@ function List() {
   return (
     <>
       <PageHeader title={t("Work Orders")} description={t("The work you are given, and the work orders of the tickets you can see.")} />
+      <WorkOrderInsights />
       <Panel>
-        <div className="row" style={{ gap: 12, paddingBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           {!vendor && <div role="group" aria-label={t("Whose work")} className="row" style={{ gap: 8 }}>
             <Button variant={mine ? "primary" : "outline"} aria-pressed={mine} onClick={() => { setMine(true); setPage(1); }}>{t("Mine")}</Button>
             <Button variant={!mine ? "primary" : "outline"} aria-pressed={!mine} onClick={() => { setMine(false); setPage(1); }}>{t("Everything I can see")}</Button>

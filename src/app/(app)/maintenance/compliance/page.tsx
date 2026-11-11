@@ -35,7 +35,7 @@ function Report() {
     <>
       <PageHeader title={t("Maintenance compliance")} description={t("Planned visits against the ones done by their date. Missed, cancelled and overdue visits count against it; visits not due yet do not count.")} />
       <Panel>
-        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           <Field label={t("From")} htmlFor="pc-from"><TextInput id="pc-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
           <Field label={t("To")} htmlFor="pc-to"><TextInput id="pc-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
           <Field label={t("Group by")} htmlFor="pc-by"><SelectInput id="pc-by" value={by} onChange={(e) => setBy(e.target.value as ComplianceReport["by"])} options={[{ value: "plan", label: t("Plan") }, { value: "team", label: t("Team") }, { value: "vendor", label: t("Vendor") }, { value: "site", label: t("Site") }]} /></Field>
@@ -43,7 +43,7 @@ function Report() {
       </Panel>
       <QueryBoundary q={q}>{(r) => (
         <>
-          <section className="stats" aria-label={t("Key metrics")} data-testid="pc-kpis">
+          <section className="kpis" aria-label={t("Key metrics")} data-testid="pc-kpis">
             <Kpi label={t("Compliance")} value={pct(r.total)} tone={r.total.percent === null ? "default" : r.total.percent >= 90 ? "good" : r.total.percent >= 70 ? "warn" : "bad"} note={t("{n} of {m} due visits done on time", { n: r.total.onTime, m: r.total.planned - r.total.open })} />
             <Kpi label={t("Planned")} value={String(r.total.planned)} />
             <Kpi label={t("Overdue")} value={String(r.total.overdue)} tone={r.total.overdue > 0 ? "bad" : "default"} note={t("Still open after their date")} />

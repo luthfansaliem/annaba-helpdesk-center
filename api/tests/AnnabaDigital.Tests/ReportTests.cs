@@ -125,11 +125,12 @@ public sealed class ReportTests(PostgresFixture fx)
         await Ok(await Assign(sup, ok, au.Id, team.Id)); await Act(agent, ok, "start"); await Act(agent, ok, "resolve", new { resolutionCode = "fixed", resolutionNote = "Replaced" });
         var lateOne = await Raise(requester, team.ServiceId);                                        // resolved, but weeks late
         await Ok(await Assign(sup, lateOne, au.Id, team.Id)); await Act(agent, lateOne, "start");
-        await Sql($"UPDATE tickets SET sla_start_at = {Ago(60 * 24 * 30)}, created_at = {Ago(60 * 24 * 30)} WHERE id = {lateOne}");
+        await Sql($"UPDATE tickets SET sla_start_at = {Ago(60 * 24 * 25)}, created_at = {Ago(60 * 24 * 25)} WHERE id = {lateOne}");
         await Act(agent, lateOne, "resolve", new { resolutionCode = "fixed", resolutionNote = "Done at last" });
+        // 25 days, not 30: the report window starts at midnight 29 days ago, so a breach stamped 30 days ago plus the target fell outside it early in the UTC day
         var silent = await Raise(requester, team.ServiceId);                                         // never answered: still open and breached
         await Ok(await Assign(sup, silent, au.Id, team.Id));
-        await Sql($"UPDATE tickets SET sla_start_at = {Ago(60 * 24 * 30)}, created_at = {Ago(60 * 24 * 30)} WHERE id = {silent}");
+        await Sql($"UPDATE tickets SET sla_start_at = {Ago(60 * 24 * 25)}, created_at = {Ago(60 * 24 * 25)} WHERE id = {silent}");
         await Escalate();
 
         var r = await Ok(await agent.Get("/api/reports/sla?days=30"));

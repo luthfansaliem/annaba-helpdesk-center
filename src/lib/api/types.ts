@@ -313,3 +313,15 @@ export type DeliveryItem = { id: string; eventId: string; event: string; attempt
 
 // ---- vendor portal (R2-11)
 export type VendorPortalUser = { userId: string; name: string; email: string; linkedAt: string };
+
+// ---- module analytics (docs/52): GET /api/<module>/summary
+export type WorkOrderSummary = { open: number; overdue: number; dueThisWeek: number; done30: number; onTime30: number; late30: number; avgCompletionHours: number | null; inHouseOpen: number; vendorOpen: number;
+  byStatus: CountItem[]; weekly: { week: string; created: number; done: number }[]; byVendor: CountItem[] };
+export type AssetSummary = { active: number; retired: number; warrantyExpired: number; warranty30: number; warranty90: number; unplaced: number; value: number | null; pmDue30: number;
+  byStatus: CountItem[]; byType: CountItem[]; bySite: CountItem[]; mostTickets: { id: string; tag: string; name: string; tickets: number }[] };
+export type VendorRank = { id: string; name: string; workOrders: number; done: number; open: number; onTime: number; late: number; spend: number | null; rating: number | null; ratings: number };
+export type VendorSummary = { active: number; blocked: number; contractsActive: number; contractsExpiring60: number; openWorkOrders: number; overdueWorkOrders: number; spend12Months: number | null; top: VendorRank[] };
+export type ComplianceRowT = { key: string; label: string; planned: number; onTime: number; late: number; open: number; overdue: number; missed: number; cancelled: number; percent: number | null };
+export type MaintenanceSummary = { active: number; paused: number; due7: number; due30: number; overdueVisits: number; last90: ComplianceRowT; monthly: ComplianceRowT[]; upcoming: { id: string; name: string; nextDueOn: string }[] };
+export type KbSummary = { published: number; drafts: number; archived: number; reviewDue: number; views: number; deflections: number; helpful: number; notHelpful: number;
+  top: { id: string; title: string; views: number; deflections: number; helpfulPercent: number | null }[]; byCategory: CountItem[] };

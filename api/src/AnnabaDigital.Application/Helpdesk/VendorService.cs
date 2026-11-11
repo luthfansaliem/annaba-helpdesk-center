@@ -337,4 +337,43 @@ public sealed partial class VendorService(IAppDb db, IClock clock, AuditWriter a
         }
         return sent;
     }
+    // ================================================================ summary (module analytics, docs/52)
+    /// <summary>The vendor register at a glance: active and blocked vendors, contracts in force and ending within 60 days, open and late vendor work, and the
+    /// vendors with the most work ranked with their on-time record, rating and (only for people who may see work-order costs) their spend over 12 months.</summary>
+    public async Task<VendorSummary> SummaryAsync(SessionPrincipal who, CancellationToken ct = default)
+    {
+        var perms = await authz.GetEffectivePermissionsAsync(who.UserId, ct);
+        var money = perms.Contains(Permissions.WorkOrdersCosts);
+        var now = clock.UtcNow; var today = DateOnly.FromDateTime(now.UtcDateTime); var in60 = today.AddDays(60); var yearAgo = now.AddYears(-1);
+        var vendors = await db.Vendors.AsNoTracking().GroupBy(v => v.BlockedAt == null).Select(g => new { Active = g.Key, N = g.Count() }).ToListAsync(ct);
+        var contracts = await db.VendorContracts.AsNoTracking().Where(c => c.StartsOn <= today && (c.EndsOn == null || c.EndsOn >= today)).GroupBy(c => 1)
+            .Select(g => new { N = g.Count(), Soon = g.Count(c => c.EndsOn != null && c.EndsOn <= in60) }).FirstOrDefaultAsync(ct);
+        var work = db.WorkOrders.AsNoTracking().Where(w => w.VendorId != null && w.Status != WorkOrderStatus.Cancelled);
+        var per = await work.GroupBy(w => w.VendorId!.Value).Select(g => new
+        {
+            g.Key, N = g.Count(), Done = g.Count(w => w.Status == WorkOrderStatus.Done), Open = g.Count(w => w.Status != WorkOrderStatus.Done),
+            OnTime = g.Count(w => w.Status == WorkOrderStatus.Done && w.DueAt != null && w.CompletedAt <= w.DueAt), Late = g.Count(w => w.Status == WorkOrderStatus.Done && w.DueAt != null && w.CompletedAt > w.DueAt),
+            Overdue = g.Count(w => w.Status != WorkOrderStatus.Done && w.DueAt != null && w.DueAt < now),
+        }).ToListAsync(ct);
+        var top = per.OrderByDescending(x => x.N).Take(8).ToList();
+        var ids = top.Select(x => x.Key).ToList();
+        var names = await db.Vendors.AsNoTracking().Where(v => ids.Contains(v.Id)).ToDictionaryAsync(v => v.Id, v => v.Name, ct);
+        // a rating counts for every vendor that did work on the rated ticket (as on the vendor's own page)
+        var rated = await db.TicketRatings.AsNoTracking()
+            .SelectMany(r => db.WorkOrders.Where(w => w.TicketId == r.TicketId && w.VendorId != null && ids.Contains(w.VendorId.Value)).Select(w => new { Vendor = w.VendorId!.Value, r.Id, r.Score }))
+            .Distinct().ToListAsync(ct);
+        var ratings = rated.GroupBy(x => x.Vendor).ToDictionary(g => g.Key, g => (Avg: g.Average(x => (double)x.Score), N: g.Count()));
+        Dictionary<Guid, decimal> spend = [];
+        decimal? total = null;
+        if (money)
+        {
+            var lines = from c in db.WorkOrderCosts.AsNoTracking() join w in work on c.WorkOrderId equals w.Id where c.CreatedAt >= yearAgo select new { Vendor = w.VendorId!.Value, Amount = c.Quantity * c.UnitCost };
+            spend = await lines.GroupBy(x => x.Vendor).Select(g => new { g.Key, Sum = g.Sum(x => x.Amount) }).ToDictionaryAsync(x => x.Key, x => x.Sum, ct);
+            total = spend.Values.Sum();
+        }
+        return new VendorSummary(vendors.Where(x => x.Active).Sum(x => x.N), vendors.Where(x => !x.Active).Sum(x => x.N), contracts?.N ?? 0, contracts?.Soon ?? 0,
+            per.Sum(x => x.Open), per.Sum(x => x.Overdue), total,
+            [.. top.Select(x => new VendorRank(x.Key, names.GetValueOrDefault(x.Key) ?? "—", x.N, x.Done, x.Open, x.OnTime, x.Late, money ? spend.GetValueOrDefault(x.Key) : null,
+                ratings.TryGetValue(x.Key, out var r) ? Math.Round(r.Avg, 2) : null, ratings.TryGetValue(x.Key, out var r2) ? r2.N : 0))]);
+    }
 }

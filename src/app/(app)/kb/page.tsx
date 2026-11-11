@@ -15,6 +15,7 @@ import type { KbCategoryItem, KbListItem, Paged } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
+import { KbInsights } from "@/components/insights/modules";
 import { t } from "@/i18n";
 
 export default function KnowledgeBasePage() {
@@ -30,8 +31,9 @@ export default function KnowledgeBasePage() {
           <Can perm="kb.publish"><Button href="/kb/categories"><FolderTree size={16} /> {t("Categories")}</Button></Can>
           <Can perm="kb.write"><Button variant="primary" href="/kb/new"><Plus size={16} /> {t("New article")}</Button></Can>
         </span>} />
+      {can("kb.write") && <KbInsights />}
       <Panel>
-        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           <Field label={t("Search the knowledge base")} htmlFor="kb-q"><TextInput id="kb-q" type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} /></Field>
           <Field label={t("Category")} htmlFor="kb-cat-f"><SelectInput id="kb-cat-f" value={cat} onChange={(e) => { setCat(e.target.value); setPage(1); }} options={[{ value: "", label: t("All") }, ...(cats.data ?? []).filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name }))]} /></Field>
           {writer && <Field label={t("Show")} htmlFor="kb-st"><SelectInput id="kb-st" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} options={[{ value: "published", label: t("Published") }, { value: "draft", label: t("Drafts and unpublished changes") }, { value: "review", label: t("Review due") }, { value: "archived", label: t("Archived") }, { value: "all", label: t("All") }]} /></Field>}

@@ -611,4 +611,40 @@ public sealed class AssetService(IAppDb db, IClock clock, AuditWriter audit, Aut
                 return JsonSerializer.SerializeToElement(raw);
         }
     }
+    // ================================================================ summary (module analytics, docs/52)
+    /// <summary>The register at a glance: assets in service by status, type and site, warranties ending, assets without a place, the purchase value in service,
+    /// planned maintenance due in 30 days and the assets with the most requests in the last year. Same scope as the register (<c>assets.read</c>).</summary>
+    public async Task<AssetSummary> SummaryAsync(CancellationToken ct = default)
+    {
+        var today = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime); var in30 = today.AddDays(30); var in90 = today.AddDays(90);
+        var active = db.Assets.AsNoTracking().Where(a => a.RetiredAt == null);
+        var byStatus = await db.Assets.AsNoTracking().GroupBy(a => a.Status).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct);
+        var w = await active.GroupBy(a => 1).Select(g => new
+        {
+            Expired = g.Count(a => a.WarrantyEnd != null && a.WarrantyEnd < today), W30 = g.Count(a => a.WarrantyEnd != null && a.WarrantyEnd >= today && a.WarrantyEnd <= in30),
+            W90 = g.Count(a => a.WarrantyEnd != null && a.WarrantyEnd >= today && a.WarrantyEnd <= in90), Unplaced = g.Count(a => a.LocationId == null), Value = g.Sum(a => a.PurchaseCost),
+        }).FirstOrDefaultAsync(ct);
+        var perType = await active.GroupBy(a => a.AssetTypeId).Select(g => new { g.Key, N = g.Count() }).OrderByDescending(x => x.N).Take(8).ToListAsync(ct);
+        var typeIds = perType.Select(x => x.Key).ToList();
+        var typeNames = await db.AssetTypes.AsNoTracking().Where(t => typeIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Name, ct);
+        var perPlace = await active.Where(a => a.LocationId != null).GroupBy(a => a.LocationId!.Value).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct);
+        var places = await PlacesAsync(ct);
+        Guid Site(Guid id) { var cur = id; for (var i = 0; i < 20 && places.TryGetValue(cur, out var pl) && pl.ParentId is { } up; i++) cur = up; return cur; }
+        var bySite = perPlace.GroupBy(x => Site(x.Key)).Select(g => new CountItem(g.Key.ToString(), places.TryGetValue(g.Key, out var s) ? s.Name : "—", g.Sum(x => x.N)))
+            .OrderByDescending(x => x.Count).Take(8).ToList();
+        var since = YearAgo;
+        var most = await db.Tickets.AsNoTracking().Where(t => t.AssetId != null && t.CreatedAt >= since).GroupBy(t => t.AssetId!.Value).Select(g => new { g.Key, N = g.Count() })
+            .OrderByDescending(x => x.N).Take(5).ToListAsync(ct);
+        var mostIds = most.Select(x => x.Key).ToList();
+        var mostAssets = await db.Assets.AsNoTracking().Where(a => mostIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id, a => new { a.Tag, a.Name }, ct);
+        var pmDue = await db.MaintenancePlans.AsNoTracking().CountAsync(p => p.PausedAt == null && (p.AssetId != null || p.AssetTypeId != null) && p.NextDueOn != null && p.NextDueOn <= in30, ct);
+
+        AssetStatus[] order = [AssetStatus.InUse, AssetStatus.InRepair, AssetStatus.Stored, AssetStatus.Retired];
+        var statusRows = order.Select(s => new CountItem(Lower(s), Lower(s), byStatus.Where(x => x.Key == s).Sum(x => x.N))).ToList();
+        var retired = Lower(AssetStatus.Retired);
+        return new AssetSummary(statusRows.Where(x => x.Key != retired).Sum(x => x.Count), statusRows.First(x => x.Key == retired).Count,
+            w?.Expired ?? 0, w?.W30 ?? 0, w?.W90 ?? 0, w?.Unplaced ?? 0, w?.Value ?? 0, pmDue,
+            statusRows, [.. perType.Select(x => new CountItem(x.Key.ToString(), typeNames.GetValueOrDefault(x.Key) ?? "—", x.N))], bySite,
+            [.. most.Where(x => mostAssets.ContainsKey(x.Key)).Select(x => new AssetTicketCount(x.Key, mostAssets[x.Key].Tag, mostAssets[x.Key].Name, x.N))]);
+    }
 }

@@ -57,6 +57,8 @@ No backend has been implemented. Per the approved workflow, backend work starts 
 | [49-ga-helpdesk-r2-slice9-report.md](49-ga-helpdesk-r2-slice9-report.md) | GA Helpdesk R2 slice 9: e-mail to ticket — secret webhook for raw MIME, new requests, replies threaded by ticket number, loop and abuse protection, message log; verification | 5 |
 | [50-ga-helpdesk-r2-slice10-report.md](50-ga-helpdesk-r2-slice10-report.md) | GA Helpdesk R2 slice 10: API keys (scoped, hashed, acting as their creator) and the public API v1 with idempotent creates; signed, retried webhooks with SSRF protection; public API reference; verification | 5 |
 | [51-ga-helpdesk-r2-slice11-report.md](51-ga-helpdesk-r2-slice11-report.md) | GA Helpdesk R2 slice 11: vendor portal — Vendor role, portal people per vendor, their company's work orders only, server-side allow-list; R2 status; verification | 5 |
+| [52-ga-helpdesk-ui-review.md](52-ga-helpdesk-ui-review.md) | GA Helpdesk UI review of every screen: template identity left over, missing per-module analytics, layout issues; recommended plan | 5 |
+| [53-ga-helpdesk-ui-redesign-report.md](53-ga-helpdesk-ui-redesign-report.md) | GA Helpdesk UI redesign: helpdesk identity, menu by job, role-based homes, KPI strip + charts on every module (5 summary endpoints), ticket page in two columns, Rupiah, demo data for all modules; verification | 5 |
 
 ## Phase tracker
 | Phase | State |

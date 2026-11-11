@@ -16,6 +16,7 @@ import { PlanDrawer, rhythm } from "@/components/maintenance/pm-bits";
 import { get } from "@/lib/api/client";
 import type { Paged, PlanListItem } from "@/lib/api/types";
 import { useQuery } from "@/lib/hooks";
+import { MaintenanceInsights } from "@/components/insights/modules";
 import { t } from "@/i18n";
 
 function Plans() {
@@ -37,8 +38,9 @@ function Plans() {
           <Link className="btn" href="/maintenance/compliance"><BarChart3 size={16} /> {t("Compliance")}</Link>
           <Can perm="pm.manage"><Button variant="primary" onClick={() => setAdding(true)}><Plus size={16} /> {t("New plan")}</Button></Can>
         </span>} />
+      <MaintenanceInsights onAdd={() => setAdding(true)} />
       <Panel>
-        <div className="row" style={{ gap: 12, paddingBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="filters">
           <Field label={t("Search plans")} htmlFor="pm-q"><TextInput id="pm-q" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} /></Field>
           <Field label={t("Status")} htmlFor="pm-status"><SelectInput id="pm-status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} options={[{ value: "all", label: t("All") }, { value: "active", label: t("Active") }, { value: "paused", label: t("Paused") }]} /></Field>
         </div>

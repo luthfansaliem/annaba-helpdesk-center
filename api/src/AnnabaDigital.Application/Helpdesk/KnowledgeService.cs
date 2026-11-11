@@ -319,4 +319,25 @@ public sealed class KnowledgeService(IAppDb db, IClock clock, AuditWriter audit,
         await storage.DeleteAsync(f.StorageKey, ct);
         return await GetAsync(id, 0, actor, ct);
     }
+    // ================================================================ summary (module analytics, docs/52)
+    /// <summary>For the people who write the knowledge base (<c>kb.write</c>): articles by state, the ones due for review, reads, requests avoided
+    /// ("this solved my problem"), helpful votes, the most-read articles and published articles per category.</summary>
+    public async Task<KbSummary> SummaryAsync(CancellationToken ct = default)
+    {
+        var today = Today;
+        var states = await db.KbArticles.AsNoTracking().GroupBy(a => a.Status).Select(g => new
+        {
+            g.Key, N = g.Count(), Review = g.Count(a => a.ReviewBy != null && a.ReviewBy <= today), Views = g.Sum(a => a.Views), Deflections = g.Sum(a => a.Deflections),
+        }).ToListAsync(ct);
+        var votes = await db.KbFeedback.AsNoTracking().GroupBy(f => f.Helpful).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct);
+        var top = await db.KbArticles.AsNoTracking().Where(a => a.Status == KbStatus.Published).OrderByDescending(a => a.Views).ThenBy(a => a.Title).Take(5)
+            .Select(a => new { a.Id, a.Title, a.Views, a.Deflections, Yes = db.KbFeedback.Count(f => f.ArticleId == a.Id && f.Helpful), No = db.KbFeedback.Count(f => f.ArticleId == a.Id && !f.Helpful) }).ToListAsync(ct);
+        var perCategory = await db.KbArticles.AsNoTracking().Where(a => a.Status == KbStatus.Published).GroupBy(a => a.CategoryId).Select(g => new { g.Key, N = g.Count() }).ToListAsync(ct);
+        var names = await db.KbCategories.AsNoTracking().ToDictionaryAsync(c => c.Id, c => c.Name, ct);
+        int Of(KbStatus s) => states.Where(x => x.Key == s).Sum(x => x.N);
+        return new KbSummary(Of(KbStatus.Published), Of(KbStatus.Draft), Of(KbStatus.Archived), states.Where(x => x.Key != KbStatus.Archived).Sum(x => x.Review),
+            states.Sum(x => x.Views), states.Sum(x => x.Deflections), votes.Where(x => x.Key).Sum(x => x.N), votes.Where(x => !x.Key).Sum(x => x.N),
+            [.. top.Select(a => new KbTop(a.Id, a.Title, a.Views, a.Deflections, a.Yes + a.No == 0 ? null : (int)Math.Round(100.0 * a.Yes / (a.Yes + a.No))))],
+            [.. perCategory.OrderByDescending(x => x.N).Select(x => new CountItem(x.Key?.ToString() ?? "none", x.Key is { } id && names.TryGetValue(id, out var n) ? n : "", x.N))]);
+    }
 }
