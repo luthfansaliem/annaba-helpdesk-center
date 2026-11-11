@@ -15,7 +15,9 @@
     "api:test": "dotnet test api/AnnabaDigital.sln",
     "api:build": "dotnet build api/AnnabaDigital.sln",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "manual:screens": "node scripts/capture-manual-screens.mjs && node scripts/render-manual-diagrams.mjs",
+    "manual:pdf": "node scripts/build-user-manual-pdf.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

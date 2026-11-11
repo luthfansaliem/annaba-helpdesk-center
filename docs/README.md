@@ -73,6 +73,7 @@ No backend has been implemented. Per the approved workflow, backend work starts 
 | [65-ga-helpdesk-r3-slice10-report.md](65-ga-helpdesk-r3-slice10-report.md) | GA Helpdesk R3 slice 10: WhatsApp, Slack and Teams channels behind the notification port (encrypted credentials and addresses, opt-in with WhatsApp code, outbox with retries, e-mail fallback); verification | 5 |
 | [66-adr-ga-07-offline-field-mode.md](66-adr-ga-07-offline-field-mode.md) | ADR-GA-07: offline field mode for technicians (IndexedDB, not the service worker; own work orders only; idempotent replays; conflicts shown) | 4 |
 | [67-ga-helpdesk-r3-slice11-report.md](67-ga-helpdesk-r3-slice11-report.md) | GA Helpdesk R3 slice 11: field mode (snapshot of my open work orders, offline changes queued and replayed with idempotency keys, conflicts); verification | 5 |
+| [68-helpdesk-user-manual.md](68-helpdesk-user-manual.md) | Panduan Pengguna Annaba Helpdesk (bahasa Indonesia), per peran, dengan gambar layar dan alur proses; PDF di `manual/Panduan-Pengguna-Annaba-Helpdesk.pdf` (`npm run manual:screens`, `npm run manual:pdf`) | semua pengguna |
 
 ## Phase tracker
 | Phase | State |

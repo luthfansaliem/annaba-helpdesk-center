@@ -76,6 +76,14 @@ const SUBJECTS = [
   "Need a visitor badge for Thursday", "Chair with a broken wheel", "Restroom needs extra cleaning", "Order of A4 paper and pens",
   "Set up chairs for the all-hands", "Parking access for a new colleague", "Move the printer to the second floor", "Door lock on storage room is stuck",
 ];
+/** A subject that fits the service (the catalog of a new organisation); other services get one of SUBJECTS above. */
+const SUBJECT_FOR = {
+  "Air conditioning": "Air conditioning too warm in the Garuda room", "Electrical & lighting": "Flickering light above desk 14", "Plumbing & water": "Leaking tap in the pantry",
+  "Furniture & fittings": "Chair with a broken wheel", "Cleaning request": "Restroom on Level 3 needs extra cleaning", "Pest control": "Ants in the pantry",
+  "Pantry supplies": "Coffee and tea for the townhall", "Stationery request (ATK)": "A4 paper and pens for the finance team", "Pool car booking": "Car to the client in Bekasi",
+  "Event set-up": "Chairs and sound for the all-hands", "Meeting room booking": "Room for the vendor review", "ID card & access": "Lost my ID card",
+  "Visitor registration": "Visitor from PT Sinar Teknik on Thursday", "Courier & package dispatch": "Deliver the signed contract to our partner", "Desk or office move": "Move two desks to Level 3",
+};
 
 async function main() {
   console.log(`Demo data for ${WEB}`);
@@ -109,7 +117,7 @@ async function main() {
   for (let i = have; i < WANT; i++) {
     const svc = catalog.services[i % catalog.services.length];
     const detail = must(await requester.get(`/api/portal/services/${svc.id}`), "reading a service");
-    const body = { subject: PREFIX + SUBJECTS[i % SUBJECTS.length], description: "Demo request.", answers: answersFor(detail.fields, { placeId, adminId: me.id }), locationId: placeId ?? null };
+    const body = { subject: PREFIX + (SUBJECT_FOR[svc.name] ?? SUBJECTS[i % SUBJECTS.length]), description: "Demo request.", answers: answersFor(detail.fields, { placeId, adminId: me.id }), locationId: placeId ?? null };
     const t = await requester.post(`/api/portal/services/${svc.id}/requests`, body);
     if (!t.ok) { console.log(`  skipped "${svc.name}": ${t.data?.error?.message ?? t.status}`); continue; }
     made.push(t.data);
@@ -312,6 +320,61 @@ async function modules(admin, requester, ctx) {
       if (out.ok) made++;
     }
     console.log(`  bookings: ${Object.keys(res).length} resources, ${made} new bookings`);
+  });
+
+  // visitors (R3-4): expected guests for today and tomorrow, one already in
+  await soft("visitors", async () => {
+    const today = rows(must(await admin.get("/api/visits?scope=all&pageSize=100"), "reading visits"));
+    if (today.some((v) => (v.purpose ?? "").startsWith("[Demo]"))) { console.log("  visitors: already there"); return; }
+    const at = (offsetDays, hh) => { const d = new Date(); d.setDate(d.getDate() + offsetDays); d.setHours(hh, 0, 0, 0); return d.toISOString(); };
+    const spec = [
+      ["Budi Santoso", "PT Sinar Teknik", 0, 10, 12, "[Demo] AC maintenance survey", true], ["Dewi Lestari", "KAP Wijaya & Rekan", 0, 13, 16, "[Demo] Annual audit", false],
+      ["Andi Pratama", "CV Bersih Selalu", 1, 9, 11, "[Demo] Cleaning contract review", false],
+    ];
+    let n = 0;
+    for (const [name, company, d, h1, h2, purpose, checkIn] of spec) {
+      const v = await requester.post("/api/visits", { visitorName: name, company, email: null, phone: "+62 812 0000 00" + n, vehiclePlate: null, hostId: null, locationId: siteId ?? placeId ?? null, purpose, expectedFrom: at(d, h1), expectedUntil: at(d, h2) });
+      if (!v.ok) { console.log(`  visitor ${name}: ${v.data?.error?.message ?? v.status}`); continue; }
+      n++;
+      if (checkIn) await admin.post(`/api/visits/${v.data.id}/check-in`, { badgeNumber: "V-07", idLast4: "4821", acknowledged: true });
+    }
+    console.log(`  visitors: ${n} expected`);
+  });
+
+  // mailroom (R3-5): two parcels waiting for the requester, one letter going out
+  await soft("mail", async () => {
+    const have = rows(must(await admin.get("/api/mail?scope=desk&pageSize=100"), "reading mail"));
+    if (have.some((m) => (m.description ?? "").startsWith("[Demo]"))) { console.log("  mail: already there"); return; }
+    for (const [direction, kind, other, carrier, waybill, desc] of [
+      ["incoming", "parcel", "Tokopedia", "JNE", "JNE0012345678", "[Demo] Office chair parts"], ["incoming", "document", "Bank Mandiri", "Pos Indonesia", null, "[Demo] Account statement"],
+      ["outgoing", "letter", "Kantor Pajak Pratama Jakarta", "J&T", null, "[Demo] Tax letter"],
+    ]) must(await admin.post("/api/mail", { direction, kind, personEmail: REQUESTER, otherParty: other, address: direction === "outgoing" ? "Jl. Jend. Sudirman No. 1, Jakarta" : null, carrier, waybill, description: desc, locationId: siteId ?? null }), `logging ${desc}`);
+    console.log("  mail: 3 items");
+  });
+
+  // inventory (R3-6) and supply requests (R3-7)
+  await soft("inventory", async () => {
+    if (!siteId) return;
+    const have = rows(must(await admin.get("/api/inventory/items?q=DEMO-"), "reading items"));
+    const spec = [["DEMO-ATK-A4", "HVS paper A4 80 g", "atk", "ream", 10, 50, 52000, 40], ["DEMO-ATK-PEN", "Ballpoint pen, black", "atk", "pcs", 30, 200, 3500, 120],
+      ["DEMO-PAN-COF", "Coffee beans 1 kg", "pantry", "pack", 4, 10, 185000, 3], ["DEMO-CLN-SOAP", "Hand soap refill 5 L", "cleaning", "can", 3, 6, 95000, 8]];
+    const items = {};
+    for (const [sku, name, category, unit, level, qty, cost, stock] of spec) {
+      let it = have.find((x) => x.sku === sku);
+      if (!it) {
+        it = must(await admin.post("/api/inventory/items", { sku, name, category, unit, reorderLevel: level, reorderQuantity: qty, unitCost: cost }), `creating ${sku}`);
+        must(await admin.post(`/api/inventory/items/${it.id}/moves`, { kind: "receipt", locationId: siteId, quantity: stock, unitCost: cost, reference: "[Demo] PO-0425 Toko Sinar" }), `receiving ${sku}`);
+      }
+      items[sku] = it;
+    }
+    await admin.put("/api/supplies/settings", { approvalAbove: 500000, defaultLocationId: siteId });
+    const mine = rows(must(await requester.get("/api/supplies/requests?pageSize=50"), "reading supply requests"));
+    if (mine.length === 0) {
+      const a = must(await requester.post("/api/supplies/requests", { locationId: siteId, note: "[Demo] For the new hires", lines: [{ itemId: items["DEMO-ATK-PEN"].id, quantity: 10 }, { itemId: items["DEMO-ATK-A4"].id, quantity: 2 }] }), "supply request");
+      await admin.post(`/api/supplies/requests/${a.id}/fulfil`, { lines: { [items["DEMO-ATK-PEN"].id]: 10, [items["DEMO-ATK-A4"].id]: 2 } });
+      await requester.post("/api/supplies/requests", { locationId: siteId, note: "[Demo] Pantry for the townhall", lines: [{ itemId: items["DEMO-PAN-COF"].id, quantity: 4 }] });
+    }
+    console.log(`  inventory: ${Object.keys(items).length} items; supplies: ${mine.length ? "already there" : "2 requests"}`);
   });
 }
 
