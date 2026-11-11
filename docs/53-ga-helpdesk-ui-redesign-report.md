@@ -102,7 +102,7 @@ Status: **implemented and verified**. The review (`52-ga-helpdesk-ui-review.md`)
 - **No date ranges on module summaries.** They use fixed windows (30/90 days, 12 weeks, 6 months); a period picker can follow if the managers want one.
 - **CSAT and work-order time trends.** Satisfaction over time and time to complete per category are not charted yet.
 - **Dark mode was not reviewed screen by screen.** The new styles use the theme variables throughout.
-- **Production needs a redeploy.** It runs the code from before this change, and the demo data is for development and staging only.
+- **Production.** Deployed on 2026-11-11 (commit `6f3cd84`). The demo data is for development and staging only.
 
 ## Found and fixed while testing
 - **Old tests that read the ticket number from the page title.** The title had become just the subject, which broke two of them. It is back to "number · subject", with the number in blue.
