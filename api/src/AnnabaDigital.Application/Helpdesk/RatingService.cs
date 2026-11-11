@@ -13,8 +13,10 @@ public sealed record RateRequest(int Score, string? Comment);
 public sealed record TicketRatingInfo(int? Score, string? Comment, DateTimeOffset? At, bool CanRate, DateTimeOffset? RateUntil);
 public sealed record CsatRow(string Key, string Label, int Count, double? Average, int? SatisfiedPercent, int Low);
 public sealed record CsatComment(Guid TicketId, string Number, string Subject, int Score, string Comment, string? Agent, DateTimeOffset At);
+/// <summary>One step of the satisfaction trend: a week (<c>yyyy-MM-dd</c>, its first day) for periods up to 90 days, otherwise a month (<c>yyyy-MM</c>).</summary>
+public sealed record CsatPoint(string Period, int Count, int Satisfied, int Low, double? Average, int? SatisfiedPercent);
 public sealed record CsatReport(int Days, DateTimeOffset From, DateTimeOffset To, string By, bool OwnOnly, int Count, double? Average, int? SatisfiedPercent, int Low, IReadOnlyList<int> Distribution,
-    IReadOnlyList<CsatRow> Rows, IReadOnlyList<CsatComment> Comments);
+    IReadOnlyList<CsatRow> Rows, IReadOnlyList<CsatComment> Comments, string TrendUnit, IReadOnlyList<CsatPoint> Trend);
 
 /// <summary>
 /// TKT-009 / RPT-006. Requesters rate resolved requests (1–5 and a comment) for 14 days after resolution; a score of 2 or less alerts the team's leads (or, without leads, the people
@@ -127,7 +129,28 @@ public sealed class RatingService(IAppDb db, IClock clock, AuditWriter audit, Au
         var tk = await db.Tickets.AsNoTracking().Where(t => tids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => new { t.Number, t.Subject }, ct);
         var comments = withText.Where(r => tk.ContainsKey(r.TicketId)).Select(r => new CsatComment(r.TicketId, tk[r.TicketId].Number, tk[r.TicketId].Subject, r.Score, r.Comment!,
             r.AssigneeId is { } a ? users.GetValueOrDefault(a) : null, r.UpdatedAt)).ToList();
+        var (unit, trend) = Trend(from, to, rows.Select(r => (r.UpdatedAt, r.Score)).ToList());
         return new CsatReport(days, from, to, group, !all, total.Count, total.Average, total.SatisfiedPercent, total.Low,
-            [.. Enumerable.Range(1, 5).Select(s => scores.Count(x => x == s))], grouped, comments);
+            [.. Enumerable.Range(1, 5).Select(s => scores.Count(x => x == s))], grouped, comments, unit, trend);
+    }
+
+    /// <summary>Weekly points (from the period's first day) for up to 90 days, monthly points beyond; empty steps are kept so the line shows the gap.</summary>
+    public static (string Unit, IReadOnlyList<CsatPoint> Points) Trend(DateTimeOffset from, DateTimeOffset to, IReadOnlyList<(DateTimeOffset At, int Score)> rows)
+    {
+        static CsatPoint Point(string label, IReadOnlyCollection<int> s) => new(label, s.Count, s.Count(RatingRules.IsSatisfied), s.Count(RatingRules.IsLow), s.Count == 0 ? null : Math.Round(s.Average(), 2),
+            s.Count == 0 ? null : (int)Math.Round(s.Count(RatingRules.IsSatisfied) * 100.0 / s.Count));
+        var start = from.UtcDateTime.Date;
+        if ((to - from).TotalDays <= 90)
+        {
+            var weeks = (int)Math.Ceiling((to.UtcDateTime.Date - start).TotalDays / 7) + 1;
+            var byWeek = rows.GroupBy(r => (int)((r.At.UtcDateTime.Date - start).TotalDays / 7)).ToDictionary(g => g.Key, g => g.Select(x => x.Score).ToList());
+            return ("week", [.. Enumerable.Range(0, weeks).Select(i => Point(start.AddDays(7 * i).ToString("yyyy-MM-dd"), byWeek.GetValueOrDefault(i) ?? []))]);
+        }
+        var first = new DateTime(start.Year, start.Month, 1);
+        var last = new DateTime(to.UtcDateTime.Year, to.UtcDateTime.Month, 1);
+        var byMonth = rows.GroupBy(r => r.At.UtcDateTime.ToString("yyyy-MM")).ToDictionary(g => g.Key, g => g.Select(x => x.Score).ToList());
+        var points = new List<CsatPoint>();
+        for (var m = first; m <= last; m = m.AddMonths(1)) points.Add(Point(m.ToString("yyyy-MM"), byMonth.GetValueOrDefault(m.ToString("yyyy-MM")) ?? []));
+        return ("month", points);
     }
 }

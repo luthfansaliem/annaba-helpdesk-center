@@ -185,6 +185,82 @@ Every table below is tenant-scoped: `tenant_id` FK → `tenants`, EF global quer
 
 **Vendor portal (R2 slice 11, migration `VendorPortal`):** `vendor_users` (PK `user_id` — one vendor per person — `vendor_id`, who linked them and when; cascades with the user and the vendor). The seeded system role `vendor` holds `workorders.read` and `workorders.complete`.
 
+**Bookings (R3 slice 1, migration `Bookings`):**
+- `bookable_resources`: `kind` (room, vehicle, parking, equipment), `name`, `code` (upper case, unique per organisation when set), `description`, `location_id` (restrict), `capacity`, `features text[]` (lower-case tags), `open_from`/`open_until time` (both or neither; neither = around the clock; until after from), `open_days` (bit mask, Monday = bit 0, 1–127), `buffer_minutes` (0–240), `max_minutes`, `needs_approval` (used from R3-2), `allowed_role_ids uuid[]` (empty = everyone who may book), `archived_at`, `version`.
+- `bookings`: `resource_id` (restrict), `title`, `booked_for_id`, `created_by_id`, `starts_at`, `ends_at`, `blocked_until` (end plus the resource's buffer at booking time), `attendees`, `note`, `status` (Confirmed, Cancelled), `cancelled_at`/`cancelled_by_id`/`cancel_reason`, `version`. Check: `ends_at > starts_at AND blocked_until >= ends_at`.
+- **No double booking:** `ex_bookings_no_overlap EXCLUDE USING gist (tenant_id WITH =, resource_id WITH =, tstzrange(starts_at, blocked_until, '[)') WITH &&) WHERE (status = 'Confirmed')`, with the `btree_gist` extension (trusted, created by the migration). A booking may start exactly when the previous one's buffer ends.
+- Times are UTC; opening hours and days are checked in the resource's place time zone (the nearest place up the tree with one), else the default calendar's.
+
+**Booking lifecycle (R3 slice 2, migration `BookingLifecycle`):**
+- `bookable_resources.check_in_minutes` (10, 15, 20, 30 or 60; empty = no check-in).
+- `bookings` gains `series_id` and `repeat` (day, weekday, week) for repeating bookings, `checked_in_at`, `reminded_at`, `decided_by_id`, `decided_at` and `decision_note`. `status` adds Pending, Rejected and Released (nobody checked in).
+- The no-overlap constraint now covers `status IN ('Confirmed', 'Pending')`: a booking waiting for approval holds its slot.
+- `booking_feeds`: one row per person (PK `user_id`, cascades with the user): `token_hash` (SHA-256, unique), `created_at`, `last_read_at`. The token itself is shown once and never stored.
+
+**Vehicles (R3 slice 3, migration `Vehicles`):**
+- `vehicle_trips`: one per booking (PK `booking_id`, cascades with it; `resource_id` restrict).
+  - Who and where: `driver_id` (empty = the person it is booked for), `needs_driver`, `destination`, `purpose`.
+  - Pick-up and return: `odometer_out`, `picked_up_at`/`_by_id`, `odometer_in`, `returned_at`/`_by_id`.
+  - Costs: `fuel_cost`, `toll_cost`, `parking_cost` (14,2).
+  - Condition: `damage_notes`, `checklist_json` (jsonb).
+  - Checks: odometer in ≥ out, costs ≥ 0.
+- `resource_documents`: `resource_id` (cascade), `kind` (Registration = STNK, Insurance, Inspection = KIR, Service, Other), `number`, `expires_on`, `note`, `reminded` (soon, expired; reset when the date changes).
+- `driver_licences`: one per person (PK `user_id`, cascades), `number`, `class`, `expires_on`, `reminded`.
+
+**Visitors (R3 slice 4, migration `Visitors`):**
+- `visits`:
+  - Visitor: `visitor_name`, `company`, `email`, `phone`, `vehicle_plate`.
+  - Visit: `host_id`, `location_id` (restrict), `purpose`, `expected_from`/`expected_until` (check: until > from).
+  - Reception: `status` (Expected, CheckedIn, CheckedOut, Cancelled, NoShow), `flag` (block-list reason), `badge_number` (unique per organisation among visitors checked in), `id_last4`, `acknowledged_at`, `checked_in_at`/`_by_id`, `checked_out_at`/`_by_id`.
+  - Record keeping: `created_by_id`, `anonymised_at`, `version`.
+- `visitor_blocks`: `name`, `company` (optional), `reason`, `created_by_id`, `removed_at`.
+- `visitor_settings`: one row per organisation (PK `tenant_id`): `acknowledgement`, `ask_id_last4`, `retention_days` (default 180).
+- Retention: after `retention_days`, a finished visit keeps its status and times but loses name (becomes "Visitor"), company, contact, plate, purpose, badge, ID digits and flag.
+
+**Mail and courier (R3 slice 5, migration `Mail`):**
+- `mail_items` holds one row per letter or parcel.
+  - **What it is:** `direction` (Incoming, Outgoing), `kind` (Letter, Document, Parcel, Other).
+  - **Status:** Received, Collected, Registered, Sent, Voided. Incoming items go Received → Collected; outgoing items go Registered → Sent.
+  - **Who:** `person_id` (the employee it is for, or who sends it) and `other_party` (the sender outside, or the addressee). Outgoing items also have an `address`.
+  - **Delivery:** `carrier`, `waybill`, `description`, `location_id` (the mailroom).
+  - **Logging:** `logged_at`/`_by_id`, `reminded_at`.
+  - **Closing:** `done_at`/`_by_id` (collected or sent), `collected_by` (a name), `note`.
+  - **Retention:** `anonymised_at`. Items use the visitor retention period.
+
+**Inventory (R3 slice 6, migration `Inventory`):**
+- `inventory_items`: `sku` (unique per organisation, upper case), `name`, `category` (atk, pantry, cleaning, uniform, toiletries, it, other), `unit`, `reorder_level` (≥ 0), `reorder_quantity`, `unit_cost` (14,2; the last receipt's), `description`, `archived_at`, `version`.
+- `stock_balances` (PK `item_id` + `location_id`): `quantity`, with check `quantity >= 0`, and `low_notified_at`. A cache of the ledger, changed in the same transaction as each movement by an atomic `quantity = quantity + Δ WHERE quantity + Δ >= 0`.
+- `stock_movements` is the append-only ledger:
+  - what moved: `item_id`, `location_id`, `kind` (Receipt, Issue, Adjustment, TransferOut, TransferIn, Count), signed `quantity` (never 0);
+  - the result: `balance_after`;
+  - context: `unit_cost`, `reference`, `group_id` (both halves of a transfer; the stock-take), `by_id`, `at`.
+- `stock_takes` (one open per place: a filtered unique index) and `stock_take_lines` (PK `stock_take_id` + `item_id`): `expected` frozen at start, `counted`.
+
+**Supply requests (R3 slice 7, migration `SuppliesAndReports`):**
+- `supply_requests`: `number` (unique per organisation, `SR-yyyy-nnnn`), `requester_id`, `location_id` (the stock place), `note`, `status` (Pending, Open, PartlyFulfilled, Fulfilled, Rejected, Cancelled, Closed), `estimated_cost` (14,2), `approver_id` (the requester's manager when approval is needed), `decided_by_id`, `decided_at`, `decision_note`, `fulfilled_at`, `version`.
+- `supply_request_lines` (PK `request_id` + `item_id`): `quantity`, `issued` (check `0 ≤ issued ≤ quantity`; the back-order is the difference), `unit_cost` when asked.
+- `supply_settings` (one row per organisation): `approval_above` (empty: never), `default_location_id`.
+- Issues are ordinary `stock_movements` (kind Issue) with `group_id` = the request id.
+- `work_order_costs` gains `stock_item_id`, `stock_location_id`, `stock_quantity` for a part drawn from stock (INV-005); its movements carry `group_id` = the work order id.
+
+**Scheduled reports (R3 slice 8, same migration):**
+- `report_schedules`: `owner_id`, `name`, `report` (tickets, sla, csat, costs, compliance, utilisation, inventory), `format` (csv, xlsx), `frequency` (daily, weekly, monthly), `weekday` (1–7), `month_day` (1–28), `hour` (0–23, organisation time zone), `days` (1–365), `recipient_ids` (uuid[]), `active`, `next_run_at` (indexed where active), `last_run_at`, `last_result`, `version`.
+- `outbox_emails` gains `attachment_name`, `attachment_type` and `attachment_content` (bytea, cleared with the body once sent or given up).
+
+**Directory (R3 slice 9, migration `Directory`):**
+- `directory_group_mappings`: `group` (≤ 200, unique with `role_id` per organisation), `role_id` (cascade), `created_by_id`, `created_at`.
+- `scim_groups`: `display_name` (unique per organisation), `external_id`, `member_ids` (uuid[], GIN index), `created_at`, `updated_at`.
+- `user_profiles` gains `employee_id` (≤ 50), `site_id` (→ locations, set null) and `external_id` (≤ 200, the identity provider's id; indexed).
+
+**Notification channels and field mode (R3 slices 10 and 11, migration `ChannelsAndFieldMode`):**
+- `channel_settings` (one per organisation and kind: whatsapp, slack, teams): `enabled`, `settings_json` (public settings), `secret_ciphertext`, `secret_nonce` and `secret_key_version` (credentials, AES-GCM bound to the row), `updated_by_id`, `updated_at`.
+- `user_channels` (unique per person and kind): `address_ciphertext`, `address_nonce`, `address_key_version` (phone, Slack member ID or Teams URL, encrypted), `hint`, `enabled`, `replace_email`, `verified_at`, `code_hash` (keyed hash), `code_expires_at`, `code_attempts`, `last_error`.
+- `channel_deliveries` (the outbox):
+  - what to send: `group_id` (all channels of one notification), `user_id`, `channel`, `purpose` (notify, verify, test), `notification_kind`, `title` and `body` (cleared once delivered or failed), `link`, `replaces_email`;
+  - progress: `attempts`, `next_attempt_at` (indexed while due), `delivered_at`, `failed_at`, `last_error`, `fell_back_at`;
+  - kept 30 days.
+- `offline_ops` (PK `user_id` + `key`): the `Idempotency-Key` of each replayed work-order change (`created_at`, kept 7 days).
+
 **Asset register (R2 slice 1, migration `AssetRegister`):** `asset_types` (name unique per organisation among active types, `fields_json` jsonb = form definition, archived_at, version), `assets` (`tag` unique per organisation, upper case; `asset_type_id`, `serial`, `status` text in_use/in_repair/stored/retired, `location_id`, `assigned_to_id`, `department`, `purchase_date` date, `purchase_cost` numeric(15,2) ≥ 0, `warranty_end` date, `vendor_name`, `notes`, `fields_json` jsonb, `retired_at`, `retire_reason`, version; indexes by type, place, person and a partial one on warranty end of assets in service), `asset_events` (append-only trail: created/updated/moved/assigned/status/retired/restored with actor label), `asset_counters` (one row per organisation, atomic upsert for automatic tags) and `tickets.asset_id` (indexed where set). R2-2 (migration `AssetWarrantyNotice`): `assets.warranty_notice` (0 none, 1 "ends within 30 days" sent, 2 "has ended" sent; reset when the warranty end changes).
 
 **E-mail wording (slice 16, migration `EmailWording`):** `email_wordings` (one row per organisation, unique `tenant_id`: `sender_name` ≤ 60, `subject_prefix` ≤ 30, `footer_en` / `footer_id` ≤ 400, `updated_at`, `updated_by`). Read by the outbox when a message is queued.

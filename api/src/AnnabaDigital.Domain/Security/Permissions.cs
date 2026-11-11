@@ -63,6 +63,18 @@ public static class Permissions
     public const string BudgetsRead = "budgets.read";
     public const string BudgetsManage = "budgets.manage";
     public const string IntegrationsManage = "integrations.manage";
+    public const string BookingsReadAll = "bookings.read_all";
+    public const string BookingsManage = "bookings.manage";
+    public const string ResourcesManage = "resources.manage";
+    public const string VisitorsCheckIn = "visitors.checkin";
+    public const string VisitorsReadAll = "visitors.read_all";
+    public const string VisitorsManage = "visitors.manage";
+    public const string MailManage = "mail.manage";
+    public const string InventoryRead = "inventory.read";
+    public const string InventoryManage = "inventory.manage";
+    public const string InventoryAdjust = "inventory.adjust";
+    public const string SuppliesFulfil = "supplies.fulfil";
+    public const string DirectoryManage = "directory.manage";
 
     public sealed record Def(string Key, string Module, string Description, bool Critical = false);
 
@@ -86,6 +98,7 @@ public static class Permissions
         new(AuditRead, "Monitoring", "View audit logs"),
         new(SecurityRead, "Monitoring", "View and acknowledge security events"),
         new(SettingsManage, "Administration", "Manage system settings", true),
+        new(DirectoryManage, "Administration", "Connect the company directory: map SSO and SCIM groups to roles, and sync employee data (HR CSV) that can suspend people", true),
         new(TenantsManage, "Administration", "Create and suspend tenants (platform organisation only)", true),
         new(LocationsRead, "Helpdesk setup", "View sites, buildings, floors and rooms"),
         new(LocationsManage, "Helpdesk setup", "Create, edit and archive locations"),
@@ -127,6 +140,17 @@ public static class Permissions
         new(BudgetsRead, "Costs", "See budgets and how much of them is spent, and the cost centres"),
         new(BudgetsManage, "Costs", "Set budgets, cost centres, the currency and the labour rate"),
         new(IntegrationsManage, "Integrations", "Create and revoke API keys and manage webhooks (they give other systems access to the organisation's data)", Critical: true),
+        new(BookingsReadAll, "Bookings", "See who booked what and why on every resource (others only see that a slot is taken)"),
+        new(BookingsManage, "Bookings", "Book for other people, and change or cancel anyone's booking"),
+        new(VisitorsCheckIn, "Visitors", "Work the reception desk: register walk-in visitors for anyone, check visitors in and out, hand out badges"),
+        new(VisitorsReadAll, "Visitors", "See every visit and the visitor report (visitors' names, companies and contact details)"),
+        new(VisitorsManage, "Visitors", "Keep the visitor block list and set the visitor rules: the acknowledgement, ID digits and how long visitors' details are kept"),
+        new(InventoryRead, "Inventory", "See stock items, how much is where, the movements, the reorder list and stock-takes"),
+        new(InventoryManage, "Inventory", "Add and edit stock items, receive deliveries, issue stock and transfer it between places"),
+        new(InventoryAdjust, "Inventory", "Correct stock with an adjustment and run stock-takes (counts post their differences)"),
+        new(SuppliesFulfil, "Inventory", "Work the supplies desk: see every supply request, approve those without a manager, issue the items from stock and close back-orders"),
+        new(MailManage, "Visitors", "Work the mailroom: log incoming letters and parcels, record who collected them, and log outgoing mail with its courier and waybill"),
+        new(ResourcesManage, "Bookings", "Add, edit and archive bookable resources: their place, capacity, features, opening hours and who may book them"),
     ];
 
     public static IEnumerable<string> All => Catalog.Select(c => c.Key);
@@ -143,10 +167,11 @@ public static class SystemRoles
     public const string GaSupervisor = "ga_supervisor";
     public const string GaManager = "ga_manager";
     public const string Vendor = "vendor";
+    public const string Receptionist = "receptionist";
 
     private static readonly string[] AgentPermissions =
-        [Permissions.TicketsReadTeam, Permissions.TicketsTransition, Permissions.TicketsUpdate, Permissions.TicketsCommentInternal, Permissions.CatalogRead, Permissions.AssetsRead, Permissions.WorkOrdersRead, Permissions.WorkOrdersComplete, Permissions.VendorsRead, Permissions.PmRead, Permissions.KbRead, Permissions.KbWrite];
-    private static readonly string[] SupervisorPermissions = [.. AgentPermissions, Permissions.TicketsReadAll, Permissions.TicketsAssign, Permissions.TeamsRead, Permissions.SlaRead, Permissions.RulesRead, Permissions.ApprovalsRead, Permissions.WorkOrdersManage, Permissions.WorkOrdersCosts, Permissions.PmManage, Permissions.KbPublish, Permissions.CostRead, Permissions.BudgetsRead];
+        [Permissions.TicketsReadTeam, Permissions.TicketsTransition, Permissions.TicketsUpdate, Permissions.TicketsCommentInternal, Permissions.CatalogRead, Permissions.AssetsRead, Permissions.WorkOrdersRead, Permissions.WorkOrdersComplete, Permissions.VendorsRead, Permissions.PmRead, Permissions.KbRead, Permissions.KbWrite, Permissions.InventoryRead];
+    private static readonly string[] SupervisorPermissions = [.. AgentPermissions, Permissions.BookingsReadAll, Permissions.BookingsManage, Permissions.VisitorsReadAll, Permissions.InventoryAdjust, Permissions.SuppliesFulfil, Permissions.TicketsReadAll, Permissions.TicketsAssign, Permissions.TeamsRead, Permissions.SlaRead, Permissions.RulesRead, Permissions.ApprovalsRead, Permissions.WorkOrdersManage, Permissions.WorkOrdersCosts, Permissions.PmManage, Permissions.KbPublish, Permissions.CostRead, Permissions.BudgetsRead];
 
     public sealed record Def(string Key, string Name, string Description, bool Protected, string[] Permissions);
 
@@ -156,7 +181,7 @@ public static class SystemRoles
         new(UserAdmin, "User Admin", "Manages users and invitations.", false,
         [
             Permissions.UsersRead, Permissions.UsersCreate, Permissions.UsersUpdate, Permissions.UsersSuspend, Permissions.UsersAssignRole,
-            Permissions.InvitationsRead, Permissions.InvitationsManage, Permissions.RolesRead, Permissions.SessionsReadAll, Permissions.SessionsRevoke,
+            Permissions.InvitationsRead, Permissions.InvitationsManage, Permissions.RolesRead, Permissions.SessionsReadAll, Permissions.SessionsRevoke, Permissions.DirectoryManage,
         ]),
         new(SecurityAuditor, "Security Auditor", "Read-only access to monitoring and sessions.", false,
         [
@@ -165,7 +190,8 @@ public static class SystemRoles
         new(User, "User", "Self-service only. No administrative permissions.", false, []),
         new(GaAgent, "GA Agent", "Works tickets of their teams: start, hold, resolve, internal notes.", false, AgentPermissions),
         new(GaSupervisor, "GA Supervisor", "Agent rights plus every ticket, assignment and confirming resolutions.", false, SupervisorPermissions),
-        new(GaManager, "GA Manager", "Supervisor rights plus running the helpdesk's configuration: locations, calendars, teams, service catalog and forms, SLA policies, assignment rules and approval policies. No user administration.", false, [.. SupervisorPermissions, Permissions.LocationsRead, Permissions.LocationsManage, Permissions.CalendarsRead, Permissions.CalendarsManage, Permissions.TeamsManage, Permissions.CatalogManage, Permissions.FormsManage, Permissions.SlaManage, Permissions.RulesManage, Permissions.ApprovalsManage, Permissions.AssetsManage, Permissions.AssetsImport, Permissions.VendorsManage, Permissions.BudgetsManage]),
+        new(GaManager, "GA Manager", "Supervisor rights plus running the helpdesk's configuration: locations, calendars, teams, service catalog and forms, SLA policies, assignment rules and approval policies. No user administration.", false, [.. SupervisorPermissions, Permissions.LocationsRead, Permissions.LocationsManage, Permissions.CalendarsRead, Permissions.CalendarsManage, Permissions.TeamsManage, Permissions.CatalogManage, Permissions.FormsManage, Permissions.SlaManage, Permissions.RulesManage, Permissions.ApprovalsManage, Permissions.AssetsManage, Permissions.AssetsImport, Permissions.VendorsManage, Permissions.BudgetsManage, Permissions.ResourcesManage, Permissions.VisitorsCheckIn, Permissions.VisitorsManage, Permissions.MailManage, Permissions.InventoryManage]),
+        new(Receptionist, "Receptionist", "Works the reception desk and the mailroom: registers walk-in visitors, checks visitors in and out, sees the visitor list, and logs incoming and outgoing mail.", false, [Permissions.VisitorsCheckIn, Permissions.VisitorsReadAll, Permissions.MailManage]),
         new(Vendor, "Vendor", "A vendor's person: sees and works only the work orders given to their company (link the person to the vendor on the vendor's page).", false, [Permissions.WorkOrdersRead, Permissions.WorkOrdersComplete]),
     ];
 }

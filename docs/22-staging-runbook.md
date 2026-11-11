@@ -147,6 +147,28 @@ Deploys: the resource uses the GitHub App source, so every push to `main` deploy
 
 UI redesign (doc 53): deployed 2026-11-11 (commit `6f3cd84`, webhook deploy 7m42s): all containers healthy, the login page shows "Annaba Helpdesk", `/login` 200, `/api/auth/me` 401, HSTS, CSP and `X-Frame-Options` present. No migration and no new variables. `scripts/demo-data.mjs` now fills every module; run it only against development or staging (`--web <url> --yes`), never production.
 
+Summary periods and satisfaction trend (doc 54): no migration and no new variables; the API and the web app must be deployed together (summary field names changed), which the single Compose deploy does.
+
+Bookings (R3-1, doc 56): migration `Bookings` creates two tables and the `btree_gist` extension (trusted in PostgreSQL 13+, so the database owner creates it; no superuser needed). Everyone signed in can book straight away. **After deploying, an administrator gives the existing roles the new permissions on People & access → Access Matrix:** `bookings.read_all` and `bookings.manage` to *GA Supervisor*; those plus `resources.manage` to *GA Manager*. Until then only the super admin can add resources. New organisations get them automatically. No new variables.
+
+Booking lifecycle (R3-2, doc 57): migration `BookingLifecycle` (new columns, `booking_feeds`, and the no-overlap constraint re-created to include pending bookings). A new background worker runs every minute (reminders, no-show release, late approvals); it follows `ReviewScheduler__Enabled`. Calendar links point at `API_ORIGIN` (`https://helpdesk.annabadigital.io/api/calendar/….ics`), which the UI proxy forwards without a session. No new variables or permissions.
+
+Vehicles (R3-3, doc 58): migration `Vehicles` (`vehicle_trips`, `resource_documents`, `driver_licences`). Expiry reminders run with the hourly scheduler. The cost report gains a vehicle-trips column. No new variables or permissions.
+
+Visitors (R3-4, doc 59): migration `Visitors`. The *Receptionist* role appears by itself; give it to the reception staff. Add `visitors.read_all` to GA Supervisor and `visitors.checkin` + `visitors.manage` to GA Manager on Access Matrix. No-shows and retention run with the hourly scheduler; the default retention is 180 days, changed under Helpdesk setup → Visitor rules. No new variables.
+
+Mail (R3-5, doc 60): migration `Mail`. The Receptionist role holds `mail.manage` when it is created (new organisations, and existing ones the first time this version starts); if Receptionist already existed, add `mail.manage` to it on Access Matrix. Add it to GA Manager too. Reminders and retention run with the hourly scheduler. No new variables.
+
+Inventory (R3-6, doc 61): migration `Inventory`. Add `inventory.read` to GA Agent, `inventory.adjust` to GA Supervisor and `inventory.manage` to GA Manager on Access Matrix in existing organisations. No new variables.
+
+Supplies (R3-7, doc 62): migration `SuppliesAndReports` (also adds the stock columns to `work_order_costs`). Add `supplies.fulfil` to GA Supervisor on Access Matrix in existing organisations, then set the default place and approval amount under *Supplies → Rules*. No new variables.
+
+Report exports (R3-8, doc 63): same migration. The schedule worker runs every five minutes with the review scheduler switches (`ReviewScheduler__Enabled`). Scheduled files go out as e-mail attachments, so check that the e-mail provider accepts attachments (Resend and SMTP do).
+
+Directory (R3-9, doc 64): migration `Directory`. Add `directory.manage` to User Admin on Access Matrix in existing organisations. Optional: `Sso__GroupsClaim` (default `groups`) if the identity provider names its groups claim differently (Entra ID: `groups`, with "emit group names" or the group ids as mapping names). For SCIM, create an API key with the `directory.write` scope and give the identity provider `https://<host>/api/v1/scim/v2` with that key as the bearer token.
+
+Channels and field mode (R3-10 and R3-11, docs 65–67): migration `ChannelsAndFieldMode`. No new variables. The channel worker runs with the review scheduler switches. Outbound HTTPS to `graph.facebook.com`, `slack.com` and `*.logic.azure.com` / `*.powerplatform.com` must be allowed if those channels are used. Credentials are entered per organisation under *Administration → Notification channels*, never in the environment.
+
 After the first start: accept the invitation, set a password and enrol MFA; clear `BOOTSTRAP_ADMIN_EMAIL`; consider protecting `main` (pushes deploy straight to production); add an uptime check on `/login`; copy backups off the VPS (`deploy/pull-backups.sh`).
 
 ## Deploying on the VPS through Coolify

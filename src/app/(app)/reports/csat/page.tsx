@@ -14,10 +14,14 @@ import { get } from "@/lib/api/client";
 import type { CsatReport, CsatRow } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
-import { Bars } from "@/components/insights/charts";
-import { t } from "@/i18n";
+import { Bars, ChartCard, ColumnChart, PALETTE } from "@/components/insights/charts";
+import { formatLocale, t } from "@/i18n";
 
 const avg = (n: number | null) => (n === null ? "—" : n.toFixed(2));
+const CSAT_PERIODS = [7, 30, 90, 180, 365] as const;
+const pointLabel = (unit: CsatReport["trendUnit"], p: string) => unit === "month"
+  ? new Date(`${p}-01T00:00:00`).toLocaleDateString(formatLocale(), { month: "short", year: "2-digit" })
+  : new Date(`${p}T00:00:00`).toLocaleDateString(formatLocale(), { day: "2-digit", month: "short" });
 
 function Report() {
   const [days, setDays] = useState(30); const [by, setBy] = useState<CsatReport["by"]>("team");
@@ -32,7 +36,7 @@ function Report() {
   ];
   return (
     <>
-      <PageHeader title={t("Satisfaction")} description={t("How requesters rated their resolved requests (1–5), by the person, team, site or vendor that worked them.")} actions={<PeriodSelect days={days} onChange={setDays} />} />
+      <PageHeader title={t("Satisfaction")} description={t("How requesters rated their resolved requests (1–5), by the person, team, site or vendor that worked them.")} actions={<PeriodSelect days={days} onChange={setDays} options={CSAT_PERIODS} />} />
       <Panel>
         <div className="filters">
           <Field label={t("Group by")} htmlFor="cs-by"><SelectInput id="cs-by" value={by} onChange={(e) => setBy(e.target.value as CsatReport["by"])} options={[{ value: "team", label: t("Team") }, { value: "agent", label: t("Agent") }, { value: "site", label: t("Site") }, { value: "vendor", label: t("Vendor") }]} /></Field>
@@ -48,6 +52,20 @@ function Report() {
               <Kpi label={t("Satisfied (4–5)")} value={r.satisfiedPercent === null ? "—" : `${r.satisfiedPercent}%`} />
               <Kpi label={t("Low (1–2)")} value={String(r.low)} tone={r.low > 0 ? "bad" : "default"} note={t("Team leads are alerted")} />
             </section>
+            {r.count > 0 && (
+              <div className="chart-grid">
+                <ChartCard title={r.trendUnit === "month" ? t("Ratings per month") : t("Ratings per week")} sub={t("Satisfied (4–5), neutral (3) and low (1–2); the table below the chart lists the averages")}>
+                  <ColumnChart stacked labels={r.trend.map((x) => pointLabel(r.trendUnit, x.period))} label={t("Satisfaction trend")}
+                    series={[{ name: t("Satisfied (4–5)"), color: PALETTE[5], data: r.trend.map((x) => x.satisfied) }, { name: t("Neutral (3)"), color: "#f59e0b", data: r.trend.map((x) => x.count - x.satisfied - x.low) }, { name: t("Low (1–2)"), color: PALETTE[4], data: r.trend.map((x) => x.low) }]} />
+                  <div className="tbl-wrap" style={{ marginTop: 10 }}>
+                    <table className="tbl compact" aria-label={t("Average rating per period")} data-testid="cs-trend">
+                      <thead><tr><th scope="row">{r.trendUnit === "month" ? t("Month") : t("Week of")}</th>{r.trend.map((x) => <th key={x.period} scope="col">{pointLabel(r.trendUnit, x.period)}</th>)}</tr></thead>
+                      <tbody><tr><th scope="row">{t("Average")}</th>{r.trend.map((x) => <td key={x.period}>{avg(x.average)}</td>)}</tr></tbody>
+                    </table>
+                  </div>
+                </ChartCard>
+              </div>
+            )}
             <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", alignItems: "start" }}>
               <Panel title={t("Spread of ratings")}>
                 <table className="tbl" aria-label={t("Spread of ratings")}>

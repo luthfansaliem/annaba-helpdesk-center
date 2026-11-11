@@ -95,6 +95,31 @@ public class AnnabaDigitalDbContext(DbContextOptions<AnnabaDigitalDbContext> opt
     public DbSet<WebhookEndpoint> WebhookEndpoints => Set<WebhookEndpoint>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
     public DbSet<VendorUser> VendorUsers => Set<VendorUser>();
+    public DbSet<BookableResource> BookableResources => Set<BookableResource>();
+    public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<BookingFeed> BookingFeeds => Set<BookingFeed>();
+    public DbSet<VehicleTrip> VehicleTrips => Set<VehicleTrip>();
+    public DbSet<ResourceDocument> ResourceDocuments => Set<ResourceDocument>();
+    public DbSet<DriverLicence> DriverLicences => Set<DriverLicence>();
+    public DbSet<Visit> Visits => Set<Visit>();
+    public DbSet<VisitorBlock> VisitorBlocks => Set<VisitorBlock>();
+    public DbSet<VisitorSettings> VisitorSettings => Set<VisitorSettings>();
+    public DbSet<MailItem> MailItems => Set<MailItem>();
+    public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+    public DbSet<StockBalance> StockBalances => Set<StockBalance>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockTake> StockTakes => Set<StockTake>();
+    public DbSet<StockTakeLine> StockTakeLines => Set<StockTakeLine>();
+    public DbSet<SupplyRequest> SupplyRequests => Set<SupplyRequest>();
+    public DbSet<SupplyRequestLine> SupplyRequestLines => Set<SupplyRequestLine>();
+    public DbSet<SupplySettings> SupplySettings => Set<SupplySettings>();
+    public DbSet<ReportSchedule> ReportSchedules => Set<ReportSchedule>();
+    public DbSet<DirectoryGroupMapping> DirectoryGroupMappings => Set<DirectoryGroupMapping>();
+    public DbSet<ScimGroup> ScimGroups => Set<ScimGroup>();
+    public DbSet<ChannelSetting> ChannelSettings => Set<ChannelSetting>();
+    public DbSet<UserChannel> UserChannels => Set<UserChannel>();
+    public DbSet<ChannelDelivery> ChannelDeliveries => Set<ChannelDelivery>();
+    public DbSet<OfflineOp> OfflineOps => Set<OfflineOp>();
 
     private sealed record SequenceRow(int Last);
 
@@ -618,6 +643,8 @@ public class AnnabaDigitalDbContext(DbContextOptions<AnnabaDigitalDbContext> opt
             e.Property(x => x.CreatedByLabel).HasMaxLength(200).IsRequired();
             e.HasIndex(x => x.WorkOrderId);
             e.HasOne<WorkOrder>().WithMany().HasForeignKey(x => x.WorkOrderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<InventoryItem>().WithMany().HasForeignKey(x => x.StockItemId).OnDelete(DeleteBehavior.Restrict);   // INV-005 parts from stock
+            e.HasOne<Location>().WithMany().HasForeignKey(x => x.StockLocationId).OnDelete(DeleteBehavior.Restrict);
         });
         b.Entity<ChecklistTemplate>(e =>
         {
@@ -913,6 +940,315 @@ public class AnnabaDigitalDbContext(DbContextOptions<AnnabaDigitalDbContext> opt
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Vendor>().WithMany().HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Cascade);
         });
+        // R3-1 bookings (BKG-001/002). The no-overlap rule is an EXCLUDE constraint added in the migration (EF cannot model it).
+        b.Entity<BookableResource>(e =>
+        {
+            e.ToTable("bookable_resources", t => { t.HasCheckConstraint("ck_bookable_resources_hours", "(open_from IS NULL) = (open_until IS NULL) AND (open_from IS NULL OR open_until > open_from)"); t.HasCheckConstraint("ck_bookable_resources_days", "open_days BETWEEN 1 AND 127"); t.HasCheckConstraint("ck_bookable_resources_buffer", "buffer_minutes BETWEEN 0 AND 240"); });
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Name).HasMaxLength(120);
+            e.Property(x => x.Code).HasMaxLength(30);
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => new { x.TenantId, x.Code }).IsUnique().HasFilter("code IS NOT NULL");
+            e.HasIndex(x => new { x.TenantId, x.Kind, x.Name });
+            e.HasOne<Location>().WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<Booking>(e =>
+        {
+            e.ToTable("bookings", t => t.HasCheckConstraint("ck_bookings_range", "ends_at > starts_at AND blocked_until >= ends_at"));
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Title).HasMaxLength(150);
+            e.Property(x => x.Note).HasMaxLength(1000);
+            e.Property(x => x.CancelReason).HasMaxLength(500);
+            e.Property(x => x.Repeat).HasMaxLength(20);
+            e.Property(x => x.DecisionNote).HasMaxLength(500);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => x.SeriesId).HasFilter("series_id IS NOT NULL");
+            e.HasIndex(x => new { x.Status, x.StartsAt });                         // the background run looks for pending and confirmed bookings near now
+            e.HasIndex(x => new { x.TenantId, x.ResourceId, x.StartsAt });
+            e.HasIndex(x => new { x.TenantId, x.BookedForId, x.StartsAt });
+            e.HasIndex(x => new { x.TenantId, x.CreatedById, x.StartsAt });
+            e.HasOne<BookableResource>().WithMany().HasForeignKey(x => x.ResourceId).OnDelete(DeleteBehavior.Restrict);
+        });
+        // R3-3 vehicles (BKG-004)
+        b.Entity<VehicleTrip>(e =>
+        {
+            e.ToTable("vehicle_trips", t =>
+            {
+                t.HasCheckConstraint("ck_vehicle_trips_odometer", "odometer_in IS NULL OR (odometer_out IS NOT NULL AND odometer_in >= odometer_out)");
+                t.HasCheckConstraint("ck_vehicle_trips_costs", "coalesce(fuel_cost, 0) >= 0 AND coalesce(toll_cost, 0) >= 0 AND coalesce(parking_cost, 0) >= 0");
+            });
+            e.HasKey(x => x.BookingId);                                     // one trip per booking
+            e.Property(x => x.Destination).HasMaxLength(200);
+            e.Property(x => x.Purpose).HasMaxLength(300);
+            e.Property(x => x.DamageNotes).HasMaxLength(2000);
+            e.Property(x => x.ChecklistJson).HasColumnType("jsonb");
+            e.Property(x => x.FuelCost).HasPrecision(14, 2); e.Property(x => x.TollCost).HasPrecision(14, 2); e.Property(x => x.ParkingCost).HasPrecision(14, 2);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => new { x.TenantId, x.ResourceId, x.ReturnedAt });
+            e.HasIndex(x => new { x.TenantId, x.DriverId });
+            e.HasOne<Booking>().WithOne().HasForeignKey<VehicleTrip>(x => x.BookingId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<BookableResource>().WithMany().HasForeignKey(x => x.ResourceId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<ResourceDocument>(e =>
+        {
+            e.ToTable("resource_documents");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Number).HasMaxLength(60);
+            e.Property(x => x.Note).HasMaxLength(500);
+            e.Property(x => x.Reminded).HasMaxLength(10);
+            e.HasIndex(x => new { x.TenantId, x.ResourceId });
+            e.HasIndex(x => x.ExpiresOn);
+            e.HasOne<BookableResource>().WithMany().HasForeignKey(x => x.ResourceId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<DriverLicence>(e =>
+        {
+            e.ToTable("driver_licences");
+            e.HasKey(x => x.UserId);                                        // one licence per person
+            e.Property(x => x.Number).HasMaxLength(40);
+            e.Property(x => x.Class).HasMaxLength(10);
+            e.Property(x => x.Reminded).HasMaxLength(10);
+            e.HasIndex(x => x.ExpiresOn);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // R3-4 visitors (VIS-001/002/005)
+        b.Entity<Visit>(e =>
+        {
+            e.ToTable("visits", t => t.HasCheckConstraint("ck_visits_window", "expected_until > expected_from"));
+            e.HasKey(x => x.Id);
+            e.Property(x => x.VisitorName).HasMaxLength(150);
+            e.Property(x => x.Company).HasMaxLength(150);
+            e.Property(x => x.Email).HasMaxLength(200);
+            e.Property(x => x.Phone).HasMaxLength(40);
+            e.Property(x => x.VehiclePlate).HasMaxLength(20);
+            e.Property(x => x.Purpose).HasMaxLength(300);
+            e.Property(x => x.Flag).HasMaxLength(400);
+            e.Property(x => x.BadgeNumber).HasMaxLength(20);
+            e.Property(x => x.IdLast4).HasMaxLength(4);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => new { x.TenantId, x.ExpectedFrom });
+            e.HasIndex(x => new { x.TenantId, x.HostId, x.ExpectedFrom });
+            e.HasIndex(x => new { x.Status, x.ExpectedUntil });                  // no-shows and retention
+            e.HasIndex(x => new { x.TenantId, x.BadgeNumber }).IsUnique().HasFilter("status = 'CheckedIn'");   // one badge per visitor on site
+            e.HasOne<Location>().WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+        });
+        // R3-6 inventory (INV-001/003/004): the balance is a cache of the ledger and may never go below zero
+        b.Entity<InventoryItem>(e =>
+        {
+            e.ToTable("inventory_items", t => t.HasCheckConstraint("ck_inventory_items_levels", "reorder_level >= 0 AND (reorder_quantity IS NULL OR reorder_quantity > 0) AND (unit_cost IS NULL OR unit_cost >= 0)"));
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Sku).HasMaxLength(40);
+            e.Property(x => x.Name).HasMaxLength(150);
+            e.Property(x => x.Category).HasMaxLength(20);
+            e.Property(x => x.Unit).HasMaxLength(20);
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.UnitCost).HasPrecision(14, 2);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => new { x.TenantId, x.Sku }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.Category, x.Name });
+        });
+        b.Entity<StockBalance>(e =>
+        {
+            e.ToTable("stock_balances", t => t.HasCheckConstraint("ck_stock_balances_not_negative", "quantity >= 0"));
+            e.HasKey(x => new { x.ItemId, x.LocationId });
+            e.HasIndex(x => new { x.TenantId, x.LocationId });
+            e.HasOne<InventoryItem>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Location>().WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<StockMovement>(e =>
+        {
+            e.ToTable("stock_movements", t => t.HasCheckConstraint("ck_stock_movements_quantity", "quantity <> 0 AND balance_after >= 0"));
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.UnitCost).HasPrecision(14, 2);
+            e.Property(x => x.Reference).HasMaxLength(300);
+            e.HasIndex(x => new { x.TenantId, x.ItemId, x.At });
+            e.HasIndex(x => new { x.TenantId, x.LocationId, x.At });
+            e.HasIndex(x => new { x.TenantId, x.Kind, x.At });
+            e.HasIndex(x => x.GroupId).HasFilter("group_id IS NOT NULL");
+            e.HasOne<InventoryItem>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Location>().WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<StockTake>(e =>
+        {
+            e.ToTable("stock_takes");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Note).HasMaxLength(300);
+            e.HasIndex(x => new { x.TenantId, x.LocationId }).IsUnique().HasFilter("closed_at IS NULL");   // one open count per place
+            e.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.StockTakeId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<StockTakeLine>(e =>
+        {
+            e.ToTable("stock_take_lines", t => t.HasCheckConstraint("ck_stock_take_lines_counted", "counted IS NULL OR counted >= 0"));
+            e.HasKey(x => new { x.StockTakeId, x.ItemId });
+            e.HasOne<InventoryItem>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+        });
+        // R3-11 field mode (ADR-GA-07): idempotency keys of replayed changes, per person
+        b.Entity<OfflineOp>(e =>
+        {
+            e.ToTable("offline_ops");
+            e.HasKey(x => new { x.UserId, x.Key });
+            e.Property(x => x.Key).HasMaxLength(100);
+            e.HasIndex(x => new { x.UserId, x.CreatedAt });
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // R3-10 notification channels (NTF-003)
+        b.Entity<ChannelSetting>(e =>
+        {
+            e.ToTable("channel_settings");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Kind).HasMaxLength(20);
+            e.Property(x => x.SettingsJson).HasMaxLength(4000);
+            e.HasIndex(x => new { x.TenantId, x.Kind }).IsUnique();
+        });
+        b.Entity<UserChannel>(e =>
+        {
+            e.ToTable("user_channels");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Kind).HasMaxLength(20);
+            e.Property(x => x.Hint).HasMaxLength(320);
+            e.Property(x => x.CodeHash).HasMaxLength(200);
+            e.Property(x => x.LastError).HasMaxLength(300);
+            e.HasIndex(x => new { x.UserId, x.Kind }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.Kind });
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<ChannelDelivery>(e =>
+        {
+            e.ToTable("channel_deliveries");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Channel).HasMaxLength(20);
+            e.Property(x => x.Purpose).HasMaxLength(10);
+            e.Property(x => x.NotificationKind).HasMaxLength(60);
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Body).HasMaxLength(1000);
+            e.Property(x => x.Link).HasMaxLength(500);
+            e.Property(x => x.LastError).HasMaxLength(300);
+            e.HasIndex(x => x.NextAttemptAt).HasFilter("delivered_at IS NULL AND failed_at IS NULL");   // the dispatcher's due query, across organisations
+            e.HasIndex(x => x.GroupId);
+            e.HasIndex(x => new { x.TenantId, x.CreatedAt });
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // R3-9 directory (INT-003, ADM-004 sync): group → role mappings and SCIM groups
+        b.Entity<DirectoryGroupMapping>(e =>
+        {
+            e.ToTable("directory_group_mappings");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Group).HasMaxLength(200);
+            e.HasIndex(x => new { x.TenantId, x.Group, x.RoleId }).IsUnique();
+            e.HasOne<Role>().WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<ScimGroup>(e =>
+        {
+            e.ToTable("scim_groups");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.DisplayName).HasMaxLength(200);
+            e.Property(x => x.ExternalId).HasMaxLength(200);
+            e.HasIndex(x => new { x.TenantId, x.DisplayName }).IsUnique();
+            e.HasIndex(x => x.MemberIds).HasMethod("gin");                   // "which groups is this person in"
+        });
+        // R3-8 scheduled reports (RPT-007)
+        b.Entity<ReportSchedule>(e =>
+        {
+            e.ToTable("report_schedules", t =>
+            {
+                t.HasCheckConstraint("ck_report_schedules_when", "hour BETWEEN 0 AND 23 AND weekday BETWEEN 1 AND 7 AND month_day BETWEEN 1 AND 28 AND days BETWEEN 1 AND 365");
+                t.HasCheckConstraint("ck_report_schedules_kinds", "format IN ('csv','xlsx') AND frequency IN ('daily','weekly','monthly')");
+            });
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(120);
+            e.Property(x => x.Report).HasMaxLength(30);
+            e.Property(x => x.Format).HasMaxLength(10);
+            e.Property(x => x.Frequency).HasMaxLength(10);
+            e.Property(x => x.LastResult).HasMaxLength(300);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => new { x.TenantId, x.OwnerId });
+            e.HasIndex(x => x.NextRunAt).HasFilter("active");                  // the worker's due query, across organisations
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // R3-7 supply requests (INV-002): lines are issued through the stock ledger (movements share the request id as group id)
+        b.Entity<SupplyRequest>(e =>
+        {
+            e.ToTable("supply_requests", t => t.HasCheckConstraint("ck_supply_requests_cost", "estimated_cost >= 0"));
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Number).HasMaxLength(20);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Note).HasMaxLength(500);
+            e.Property(x => x.DecisionNote).HasMaxLength(500);
+            e.Property(x => x.EstimatedCost).HasPrecision(14, 2);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => new { x.TenantId, x.Number }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.RequesterId, x.CreatedAt });
+            e.HasIndex(x => new { x.TenantId, x.Status, x.CreatedAt });
+            e.HasIndex(x => new { x.TenantId, x.ApproverId }).HasFilter("status = 'Pending'");
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.RequesterId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.ApproverId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Location>().WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+            e.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<SupplyRequestLine>(e =>
+        {
+            e.ToTable("supply_request_lines", t => t.HasCheckConstraint("ck_supply_request_lines_qty", "quantity > 0 AND issued >= 0 AND issued <= quantity"));
+            e.HasKey(x => new { x.RequestId, x.ItemId });
+            e.Property(x => x.UnitCost).HasPrecision(14, 2);
+            e.HasIndex(x => new { x.TenantId, x.ItemId });
+            e.HasOne<InventoryItem>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<SupplySettings>(e =>
+        {
+            e.ToTable("supply_settings");
+            e.HasKey(x => x.TenantId);                                      // one row per organisation
+            e.Property(x => x.ApprovalAbove).HasPrecision(14, 2);
+            e.HasOne<Location>().WithMany().HasForeignKey(x => x.DefaultLocationId).OnDelete(DeleteBehavior.SetNull);
+        });
+        // R3-5 mail and courier (VIS-004)
+        b.Entity<MailItem>(e =>
+        {
+            e.ToTable("mail_items");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Direction).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.OtherParty).HasMaxLength(200);
+            e.Property(x => x.Address).HasMaxLength(500);
+            e.Property(x => x.Carrier).HasMaxLength(60);
+            e.Property(x => x.Waybill).HasMaxLength(60);
+            e.Property(x => x.Description).HasMaxLength(300);
+            e.Property(x => x.CollectedBy).HasMaxLength(150);
+            e.Property(x => x.Note).HasMaxLength(300);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => new { x.TenantId, x.PersonId, x.LoggedAt });
+            e.HasIndex(x => new { x.TenantId, x.Status, x.LoggedAt });
+            e.HasIndex(x => new { x.TenantId, x.Waybill });
+            e.HasOne<Location>().WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<VisitorBlock>(e =>
+        {
+            e.ToTable("visitor_blocks");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(150);
+            e.Property(x => x.Company).HasMaxLength(150);
+            e.Property(x => x.Reason).HasMaxLength(300);
+            e.HasIndex(x => x.TenantId);
+        });
+        b.Entity<VisitorSettings>(e =>
+        {
+            e.ToTable("visitor_settings");
+            e.HasKey(x => x.TenantId);                                      // one row per organisation
+            e.Property(x => x.Acknowledgement).HasMaxLength(4000);
+        });
+        b.Entity<BookingFeed>(e =>
+        {
+            e.ToTable("booking_feeds");
+            e.HasKey(x => x.UserId);                                        // one feed per person
+            e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
         b.Entity<EmailWording>(e =>
         {
             e.ToTable("email_wordings");
@@ -923,9 +1259,9 @@ public class AnnabaDigitalDbContext(DbContextOptions<AnnabaDigitalDbContext> opt
             e.Property(x => x.FooterId).HasMaxLength(400);
             e.HasIndex(x => x.TenantId).IsUnique(); // one wording per organisation
         });
-        foreach (var t in new[] { typeof(ApprovalPolicy), typeof(TicketApproval), typeof(Notification), typeof(Attachment), typeof(TicketView), typeof(ApprovalDelegation), typeof(NotificationPreference), typeof(RetentionPolicy), typeof(TicketLegalHold), typeof(EmailWording), typeof(AssetType), typeof(Asset), typeof(AssetEvent), typeof(AssetCounter), typeof(WorkOrder), typeof(WorkOrderTask), typeof(WorkOrderTime), typeof(WorkOrderCost), typeof(ChecklistTemplate), typeof(Vendor), typeof(VendorContact), typeof(VendorSite), typeof(VendorContract), typeof(VendorDocument), typeof(MaintenancePlan), typeof(MaintenanceVisit), typeof(TicketRating), typeof(KbCategory), typeof(KbArticle), typeof(KbArticleVersion), typeof(KbArticleService), typeof(KbFeedback), typeof(KbFile), typeof(CostSettings), typeof(CostCenter), typeof(CostCenterPlace), typeof(Budget), typeof(InboundMailbox), typeof(InboundMessage), typeof(ApiKey), typeof(ApiIdempotency), typeof(WebhookEndpoint), typeof(WebhookDelivery), typeof(VendorUser) })
+        foreach (var t in new[] { typeof(ApprovalPolicy), typeof(TicketApproval), typeof(Notification), typeof(Attachment), typeof(TicketView), typeof(ApprovalDelegation), typeof(NotificationPreference), typeof(RetentionPolicy), typeof(TicketLegalHold), typeof(EmailWording), typeof(AssetType), typeof(Asset), typeof(AssetEvent), typeof(AssetCounter), typeof(WorkOrder), typeof(WorkOrderTask), typeof(WorkOrderTime), typeof(WorkOrderCost), typeof(ChecklistTemplate), typeof(Vendor), typeof(VendorContact), typeof(VendorSite), typeof(VendorContract), typeof(VendorDocument), typeof(MaintenancePlan), typeof(MaintenanceVisit), typeof(TicketRating), typeof(KbCategory), typeof(KbArticle), typeof(KbArticleVersion), typeof(KbArticleService), typeof(KbFeedback), typeof(KbFile), typeof(CostSettings), typeof(CostCenter), typeof(CostCenterPlace), typeof(Budget), typeof(InboundMailbox), typeof(InboundMessage), typeof(ApiKey), typeof(ApiIdempotency), typeof(WebhookEndpoint), typeof(WebhookDelivery), typeof(VendorUser), typeof(BookableResource), typeof(Booking), typeof(BookingFeed), typeof(VehicleTrip), typeof(ResourceDocument), typeof(DriverLicence), typeof(Visit), typeof(VisitorBlock), typeof(VisitorSettings), typeof(MailItem), typeof(InventoryItem), typeof(StockBalance), typeof(StockMovement), typeof(StockTake), typeof(StockTakeLine), typeof(SupplyRequest), typeof(SupplyRequestLine), typeof(SupplySettings), typeof(ReportSchedule), typeof(DirectoryGroupMapping), typeof(ScimGroup), typeof(ChannelSetting), typeof(UserChannel), typeof(ChannelDelivery), typeof(OfflineOp) })
             b.Entity(t).HasOne(typeof(Tenant)).WithMany().HasForeignKey("TenantId").OnDelete(DeleteBehavior.Restrict);
-        Filter<ApprovalPolicy>(b); Filter<TicketApproval>(b); Filter<Notification>(b); Filter<Attachment>(b); Filter<TicketView>(b); Filter<ApprovalDelegation>(b); Filter<NotificationPreference>(b); Filter<RetentionPolicy>(b); Filter<TicketLegalHold>(b); Filter<EmailWording>(b); Filter<AssetType>(b); Filter<Asset>(b); Filter<AssetEvent>(b); Filter<AssetCounter>(b); Filter<WorkOrder>(b); Filter<WorkOrderTask>(b); Filter<WorkOrderTime>(b); Filter<WorkOrderCost>(b); Filter<ChecklistTemplate>(b); Filter<Vendor>(b); Filter<VendorContact>(b); Filter<VendorSite>(b); Filter<VendorContract>(b); Filter<VendorDocument>(b); Filter<MaintenancePlan>(b); Filter<MaintenanceVisit>(b); Filter<TicketRating>(b); Filter<KbCategory>(b); Filter<KbArticle>(b); Filter<KbArticleVersion>(b); Filter<KbArticleService>(b); Filter<KbFeedback>(b); Filter<KbFile>(b); Filter<CostSettings>(b); Filter<CostCenter>(b); Filter<CostCenterPlace>(b); Filter<Budget>(b); Filter<InboundMailbox>(b); Filter<InboundMessage>(b); Filter<ApiKey>(b); Filter<ApiIdempotency>(b); Filter<WebhookEndpoint>(b); Filter<WebhookDelivery>(b); Filter<VendorUser>(b);
+        Filter<ApprovalPolicy>(b); Filter<TicketApproval>(b); Filter<Notification>(b); Filter<Attachment>(b); Filter<TicketView>(b); Filter<ApprovalDelegation>(b); Filter<NotificationPreference>(b); Filter<RetentionPolicy>(b); Filter<TicketLegalHold>(b); Filter<EmailWording>(b); Filter<AssetType>(b); Filter<Asset>(b); Filter<AssetEvent>(b); Filter<AssetCounter>(b); Filter<WorkOrder>(b); Filter<WorkOrderTask>(b); Filter<WorkOrderTime>(b); Filter<WorkOrderCost>(b); Filter<ChecklistTemplate>(b); Filter<Vendor>(b); Filter<VendorContact>(b); Filter<VendorSite>(b); Filter<VendorContract>(b); Filter<VendorDocument>(b); Filter<MaintenancePlan>(b); Filter<MaintenanceVisit>(b); Filter<TicketRating>(b); Filter<KbCategory>(b); Filter<KbArticle>(b); Filter<KbArticleVersion>(b); Filter<KbArticleService>(b); Filter<KbFeedback>(b); Filter<KbFile>(b); Filter<CostSettings>(b); Filter<CostCenter>(b); Filter<CostCenterPlace>(b); Filter<Budget>(b); Filter<InboundMailbox>(b); Filter<InboundMessage>(b); Filter<ApiKey>(b); Filter<ApiIdempotency>(b); Filter<WebhookEndpoint>(b); Filter<WebhookDelivery>(b); Filter<VendorUser>(b); Filter<BookableResource>(b); Filter<Booking>(b); Filter<BookingFeed>(b); Filter<VehicleTrip>(b); Filter<ResourceDocument>(b); Filter<DriverLicence>(b); Filter<Visit>(b); Filter<VisitorBlock>(b); Filter<VisitorSettings>(b); Filter<MailItem>(b); Filter<InventoryItem>(b); Filter<StockBalance>(b); Filter<StockMovement>(b); Filter<StockTake>(b); Filter<StockTakeLine>(b); Filter<SupplyRequest>(b); Filter<SupplyRequestLine>(b); Filter<SupplySettings>(b); Filter<ReportSchedule>(b); Filter<DirectoryGroupMapping>(b); Filter<ScimGroup>(b); Filter<ChannelSetting>(b); Filter<UserChannel>(b); Filter<ChannelDelivery>(b); Filter<OfflineOp>(b);
         foreach (var t in new[] { typeof(SlaPolicy), typeof(AssignmentRule) })
             b.Entity(t).HasOne(typeof(Tenant)).WithMany().HasForeignKey("TenantId").OnDelete(DeleteBehavior.Restrict);
         Filter<SlaPolicy>(b); Filter<AssignmentRule>(b);
@@ -963,6 +1299,10 @@ public class AnnabaDigitalDbContext(DbContextOptions<AnnabaDigitalDbContext> opt
             e.HasKey(x => x.UserId);
             e.HasIndex(x => x.ManagerId);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.ManagerId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(x => x.EmployeeId).HasMaxLength(50);
+            e.Property(x => x.ExternalId).HasMaxLength(200);
+            e.HasIndex(x => x.ExternalId).HasFilter("external_id IS NOT NULL");
+            e.HasOne<Location>().WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
         });
         b.Entity<Avatar>(e =>
         {
@@ -1056,6 +1396,8 @@ public class AnnabaDigitalDbContext(DbContextOptions<AnnabaDigitalDbContext> opt
             e.Property(x => x.ToAddress).HasMaxLength(320);
             e.Property(x => x.Subject).HasMaxLength(500);
             e.Property(x => x.LastError).HasMaxLength(200);
+            e.Property(x => x.AttachmentName).HasMaxLength(200);
+            e.Property(x => x.AttachmentType).HasMaxLength(120);
             e.HasIndex(x => x.NextAttemptAt).HasFilter("sent_at IS NULL AND failed_at IS NULL"); // the dispatcher's claim query
             e.HasIndex(x => new { x.TenantId, x.CreatedAt }); // each organisation's Email Delivery page
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);

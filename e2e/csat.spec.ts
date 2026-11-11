@@ -48,7 +48,12 @@ test.describe("satisfaction (R2-6)", () => {
     await admin.goto("/reports/csat");
     await expect(admin.getByTestId("cs-kpis")).toContainText("Average rating");
     await expect(admin.getByRole("link", { name: ticket.number })).toBeVisible();
+    // the trend: weekly for 30 days, monthly for a year, with the averages as a table
+    await expect(admin.getByRole("heading", { name: "Ratings per week" })).toBeVisible();
+    await expect(admin.getByTestId("cs-trend")).toContainText("Average");
     await axe(admin, "satisfaction report");
+    await admin.getByLabel("Period", { exact: true }).selectOption("365");
+    await expect(admin.getByRole("heading", { name: "Ratings per month" })).toBeVisible();
     expect((await member.get("/api/reports/csat")).status()).toBe(403);
   });
 });

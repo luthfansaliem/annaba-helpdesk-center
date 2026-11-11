@@ -19,10 +19,11 @@ public static class WorkOrderEndpoints
         app.MapPut("/api/tickets/{id:guid}/work-orders/settings", async (Guid id, ResolveSettingRequest body, WorkOrderService svc, HttpContext ctx)
             => Results.Ok(await svc.SetResolveAsync(id, body, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersManage);
 
-        var g = app.MapGroup("/api/work-orders");
+        var g = app.MapGroup("/api/work-orders").AddEndpointFilter<IdempotentChangeFilter>();   // ADR-GA-07: field mode replays carry an Idempotency-Key
         g.MapGet("/", async (bool? mine, string? status, int? page, int? pageSize, WorkOrderService svc, HttpContext ctx)
             => Results.Ok(await svc.ListAsync(mine ?? false, status, page ?? 1, pageSize ?? 25, ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);
-        g.MapGet("/summary", async (WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.SummaryAsync(ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);
+        g.MapGet("/summary", async (int? days, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.SummaryAsync(ctx.RequirePrincipal(), days, ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);
+        g.MapGet("/offline", async (WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.OfflineAsync(ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersComplete);
         g.MapGet("/{id:guid}", async (Guid id, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.GetAsync(id, ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);
         g.MapPut("/{id:guid}", async (Guid id, SaveWorkOrderRequest body, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.UpdateAsync(id, body, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersManage);
         g.MapPost("/{id:guid}/action", async (Guid id, WorkOrderActionRequest body, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.ActAsync(id, body, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);
@@ -30,6 +31,7 @@ public static class WorkOrderEndpoints
         g.MapPost("/{id:guid}/time", async (Guid id, LogTimeRequest body, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.LogTimeAsync(id, body, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersComplete);
         g.MapDelete("/{id:guid}/time/{timeId:guid}", async (Guid id, Guid timeId, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.DeleteTimeAsync(id, timeId, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersRead);
         g.MapPost("/{id:guid}/costs", async (Guid id, AddCostRequest body, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.AddCostAsync(id, body, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersCosts);
+        g.MapPost("/{id:guid}/parts", async (Guid id, AddStockPartRequest body, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.AddStockPartAsync(id, body, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersCosts);
         g.MapDelete("/{id:guid}/costs/{costId:guid}", async (Guid id, Guid costId, WorkOrderService svc, HttpContext ctx) => Results.Ok(await svc.DeleteCostAsync(id, costId, ctx.RequirePrincipal(), ctx.Client(), ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersCosts);
         g.MapPost("/{id:guid}/files", async (Guid id, string? stage, IFormFile file, WorkOrderService svc, HttpContext ctx) =>
         {

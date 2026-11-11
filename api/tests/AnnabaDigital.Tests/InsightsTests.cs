@@ -79,20 +79,26 @@ public sealed class InsightsTests(PostgresFixture fx)
         req = TestBrowser.Create(f); await req.LoginAsync(reqUser.Email, Seed.Password);
 
         var s = await Ok(await agent.Get("/api/work-orders/summary"));
-        Assert.Equal(2, Int(s, "open")); Assert.Equal(2, Int(s, "overdue")); Assert.Equal(1, Int(s, "done30")); Assert.Equal(1, Int(s, "onTime30")); Assert.Equal(0, Int(s, "late30"));
+        Assert.Equal(2, Int(s, "open")); Assert.Equal(2, Int(s, "overdue")); Assert.Equal(1, Int(s, "done")); Assert.Equal(1, Int(s, "onTime")); Assert.Equal(0, Int(s, "late"));
         Assert.Equal(1, Int(s, "inHouseOpen")); Assert.Equal(1, Int(s, "vendorOpen"));
         Assert.Equal(12, s.GetProperty("weekly").GetArrayLength()); Assert.Equal(3, s.GetProperty("weekly").EnumerateArray().Sum(x => x.GetProperty("created").GetInt32()));
         Assert.Equal(1, s.GetProperty("byVendor")[0].GetProperty("count").GetInt32());
         Assert.Equal(2, s.GetProperty("byStatus").EnumerateArray().First(x => x.GetProperty("key").GetString() == "open").GetProperty("count").GetInt32());
+        Assert.Equal(30, Int(s, "days"));
+        var byCat = Assert.Single(s.GetProperty("byCategory").EnumerateArray()); Assert.Equal(cat.ToString(), byCat.GetProperty("key").GetString()); Assert.Equal(1, Int(byCat, "done"));
+        Assert.True(byCat.GetProperty("avgHours").GetDouble() >= 0);
+        var year = await Ok(await agent.Get("/api/work-orders/summary?days=365"));
+        Assert.Equal(365, Int(year, "days")); Assert.Equal(53, year.GetProperty("weekly").GetArrayLength());
+        Assert.Equal(7, Int(await Ok(await agent.Get("/api/work-orders/summary?days=1")), "days"));   // clamped to a week
 
         var vs = await Ok(await sup.Get("/api/vendors/summary"));
         Assert.Equal(1, Int(vs, "active")); Assert.Equal(1, Int(vs, "blocked")); Assert.Equal(2, Int(vs, "contractsActive")); Assert.Equal(1, Int(vs, "contractsExpiring60"));
         Assert.Equal(1, Int(vs, "openWorkOrders")); Assert.Equal(1, Int(vs, "overdueWorkOrders"));
-        Assert.Equal(750000m, vs.GetProperty("spend12Months").GetDecimal());
+        Assert.Equal(750000m, vs.GetProperty("spend").GetDecimal());
         var top = vs.GetProperty("top")[0]; Assert.Equal(v1, IdOf(top)); Assert.Equal(2, Int(top, "workOrders")); Assert.Equal(1, Int(top, "onTime"));
         // money only for people who may see work-order costs
         var va = await Ok(await agent.Get("/api/vendors/summary"));
-        Assert.Equal(JsonValueKind.Null, va.GetProperty("spend12Months").ValueKind); Assert.Equal(JsonValueKind.Null, va.GetProperty("top")[0].GetProperty("spend").ValueKind);
+        Assert.Equal(JsonValueKind.Null, va.GetProperty("spend").ValueKind); Assert.Equal(JsonValueKind.Null, va.GetProperty("top")[0].GetProperty("spend").ValueKind);
 
         // ---------------------------------------------------------------- maintenance
         await Ok(await sup.Post("/api/maintenance/plans", new { name = $"AC service {Uniq()}", serviceId = svc, assetTypeId = ac, unit = "month", every = 1, startsOn = D(today.AddDays(5)), leadDays = 0 }));
@@ -101,6 +107,8 @@ public sealed class InsightsTests(PostgresFixture fx)
         var m = await Ok(await agent.Get("/api/maintenance/summary"));
         Assert.Equal(1, Int(m, "active")); Assert.Equal(1, Int(m, "paused")); Assert.Equal(1, Int(m, "due7")); Assert.Equal(1, Int(m, "due30"));
         Assert.Equal(6, m.GetProperty("monthly").GetArrayLength()); Assert.Single(m.GetProperty("upcoming").EnumerateArray());
+        Assert.Equal(90, Int(m, "days")); Assert.Equal("period", m.GetProperty("period").GetProperty("key").GetString());
+        Assert.Equal(12, (await Ok(await agent.Get("/api/maintenance/summary?days=365"))).GetProperty("monthly").GetArrayLength());
 
         // ---------------------------------------------------------------- knowledge base (for writers)
         var art = IdOf(await Ok(await agent.Post("/api/kb/articles", new { title = $"Book a room {Uniq()}", body = "Use New request.", visibility = "everyone" })));
@@ -113,5 +121,33 @@ public sealed class InsightsTests(PostgresFixture fx)
         Assert.Equal(1, Int(k, "published")); Assert.Equal(1, Int(k, "drafts")); Assert.Equal(1, Int(k, "helpful")); Assert.Equal(1, Int(k, "deflections"));
         Assert.True(Int(k, "views") >= 2);
         Assert.Equal(art, IdOf(k.GetProperty("top")[0])); Assert.Equal(100, Int(k.GetProperty("top")[0], "helpfulPercent"));
+
+        // ---------------------------------------------------------------- the period: 40 days later the finished work order leaves the 30-day window
+        clock.Advance(TimeSpan.FromDays(40));
+        agent = TestBrowser.Create(f); await agent.LoginAsync(agentUser.Email, Seed.Password);
+        sup = TestBrowser.Create(f); await sup.LoginAsync(supUser.Email, Seed.Password);
+        Assert.Equal(0, Int(await Ok(await agent.Get("/api/work-orders/summary")), "done"));
+        var wide = await Ok(await agent.Get("/api/work-orders/summary?days=90"));
+        Assert.Equal(1, Int(wide, "done")); Assert.Equal(1, Int(wide, "onTime"));
+        var month = await Ok(await sup.Get("/api/vendors/summary?days=30"));
+        Assert.Equal(30, Int(month, "days")); Assert.Equal(0m, month.GetProperty("spend").GetDecimal());
+        var v1Month = month.GetProperty("top").EnumerateArray().First(x => IdOf(x) == v1);
+        Assert.Equal(1, Int(v1Month, "workOrders")); Assert.Equal(0, Int(v1Month, "done"));   // the open one still counts; the one finished 40 days ago does not
+        Assert.Equal(750000m, (await Ok(await sup.Get("/api/vendors/summary"))).GetProperty("spend").GetDecimal());   // the default year still has it
+    }
+
+    [Fact]
+    public void The_satisfaction_trend_is_weekly_up_to_90_days_and_monthly_beyond()
+    {
+        var to = new DateTimeOffset(2026, 11, 11, 10, 0, 0, TimeSpan.Zero);
+        var rows = new List<(DateTimeOffset, int)> { (to.AddDays(-29), 5), (to.AddDays(-28), 1), (to.AddDays(-1), 4) };
+        var (unit, weeks) = Application.Helpdesk.RatingService.Trend(to.AddDays(-30), to, rows);
+        Assert.Equal("week", unit); Assert.Equal(6, weeks.Count);
+        Assert.Equal(2, weeks[0].Count); Assert.Equal(1, weeks[0].Satisfied); Assert.Equal(1, weeks[0].Low); Assert.Equal(3.0, weeks[0].Average); Assert.Equal(50, weeks[0].SatisfiedPercent);
+        Assert.Null(weeks[1].Average);   // empty weeks stay, so the line shows the gap
+        Assert.Equal("2026-10-12", weeks[0].Period); Assert.Equal(1, weeks[4].Count); Assert.Equal(3, weeks.Sum(w => w.Count));
+        var (unit2, months) = Application.Helpdesk.RatingService.Trend(to.AddDays(-180), to, rows);
+        Assert.Equal("month", unit2); Assert.Equal(7, months.Count); Assert.Equal("2026-05", months[0].Period); Assert.Equal("2026-11", months[^1].Period);
+        Assert.Equal(3, months.Sum(m => m.Count));
     }
 }

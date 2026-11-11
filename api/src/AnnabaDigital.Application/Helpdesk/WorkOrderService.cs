@@ -12,7 +12,7 @@ namespace AnnabaDigital.Application.Helpdesk;
 
 public sealed record WoTaskItem(Guid Id, int Position, string Text, bool Required, DateTimeOffset? DoneAt, string? DoneBy, string? Note);
 public sealed record WoTimeItem(Guid Id, Guid UserId, string Person, int Minutes, DateOnly Date, string? Note, bool CanDelete);
-public sealed record WoCostItem(Guid Id, string Kind, string Description, decimal Quantity, decimal UnitCost, decimal Total, string By, bool CanDelete);
+public sealed record WoCostItem(Guid Id, string Kind, string Description, decimal Quantity, decimal UnitCost, decimal Total, string By, bool CanDelete, bool FromStock = false);
 public sealed record WoFile(Guid Id, string FileName, string ContentType, string? Stage, bool Inline, DateTimeOffset CreatedAt);
 public sealed record WorkOrderListItem(Guid Id, string Number, string Title, string Status, bool Required, Guid? AssigneeId, string? AssigneeName, string? TeamName, Guid TicketId, string TicketNumber, string TicketSubject,
     DateTimeOffset? DueAt, int TasksDone, int TasksTotal, DateTimeOffset UpdatedAt, string? VendorName = null);
@@ -29,7 +29,9 @@ public sealed record WorkOrderActionRequest(string? Action, string? Reason, stri
 public sealed record TickRequest(bool Done, string? Note);
 public sealed record LogTimeRequest(int Minutes, DateOnly? Date, string? Note);
 public sealed record AddCostRequest(string? Kind, string? Description, decimal Quantity, decimal UnitCost);
+public sealed record AddStockPartRequest(Guid? ItemId, Guid? LocationId, int? Quantity);
 public sealed record ResolveSettingRequest(bool ResolveTicket);
+public sealed record OfflineSnapshot(DateTimeOffset TakenAt, IReadOnlyList<WorkOrderDetail> Items);
 public sealed record TemplateLine(string Text, bool Required = true);
 public sealed record ChecklistTemplateItem(Guid Id, string Name, IReadOnlyList<TemplateLine> Items, bool Archived, int Version);
 public sealed record SaveTemplateRequest(string? Name, TemplateLine[]? Items, int? Version = null);
@@ -40,7 +42,7 @@ public sealed record SaveTemplateRequest(string? Name, TemplateLine[]? Items, in
 /// with <c>workorders.complete</c> (start, hold, checklist, time, photos, complete); managers may too. Money is behind <c>workorders.costs</c>. Every step is a staff-only line
 /// on the ticket's timeline and an audit row. When the ticket asks for it, completing its last required work order resolves the ticket.
 /// </summary>
-public sealed class WorkOrderService(IAppDb db, IClock clock, AuditWriter audit, AuthorizationService authz, TicketService tickets, NotificationService notifications, AttachmentService attachments, IAppLinks links, AnnabaDigital.Application.Integrations.IntegrationService integrations)
+public sealed class WorkOrderService(IAppDb db, IClock clock, AuditWriter audit, AuthorizationService authz, TicketService tickets, NotificationService notifications, AttachmentService attachments, IAppLinks links, AnnabaDigital.Application.Integrations.IntegrationService integrations, InventoryService inventory)
 {
     public const int MaxPerTicket = 50, MaxTimeDaysBack = 90;
 
@@ -116,6 +118,17 @@ public sealed class WorkOrderService(IAppDb db, IClock clock, AuditWriter audit,
         return new PagedResult<WorkOrderListItem>(rows, page, pageSize, total);
     }
 
+    /// <summary>ADR-GA-07. Field mode's snapshot: at most 50 of the caller's own open work orders, with checklists, without costs.</summary>
+    public async Task<OfflineSnapshot> OfflineAsync(SessionPrincipal p, CancellationToken ct = default)
+    {
+        var w = await WhoAsync(p, ct);
+        var rows = await (await VisibleAsync(w, ct)).Where(x => x.AssigneeId == p.UserId && x.Status != WorkOrderStatus.Done && x.Status != WorkOrderStatus.Cancelled)
+            .OrderBy(x => x.DueAt == null).ThenBy(x => x.DueAt).ThenBy(x => x.CreatedAt).Take(50).ToListAsync(ct);
+        var list = new List<WorkOrderDetail>();
+        foreach (var x in rows) list.Add((await BuildAsync(x, w, ct)) with { Costs = null, CostTotal = null, LabourCost = null });
+        return new OfflineSnapshot(clock.UtcNow, list);
+    }
+
     public async Task<WorkOrderDetail> GetAsync(Guid id, SessionPrincipal p, CancellationToken ct = default)
     {
         var w = await WhoAsync(p, ct);
@@ -145,7 +158,7 @@ public sealed class WorkOrderService(IAppDb db, IClock clock, AuditWriter audit,
             x.AssetId, asset?.Tag, asset?.Name, x.DueAt, x.HoldReason, x.StartedAt, x.CompletedAt, x.CompletionNote, x.CancelReason,
             [.. tasks.Select(k => new WoTaskItem(k.Id, k.Position, k.Text, k.Required, k.DoneAt, k.DoneByLabel, k.Note))],
             [.. times.Select(k => new WoTimeItem(k.Id, k.UserId, k.UserLabel, k.Minutes, k.WorkDate, k.Note, !finished && !ticketDone && (k.UserId == w.Id || w.Has(Permissions.WorkOrdersManage))))], times.Sum(k => k.Minutes),
-            costs?.Select(k => new WoCostItem(k.Id, k.Kind, k.Description, k.Quantity, k.UnitCost, CostService.Money(k.Quantity * k.UnitCost), k.CreatedByLabel, x.Status != WorkOrderStatus.Cancelled)).ToList(),
+            costs?.Select(k => new WoCostItem(k.Id, k.Kind, k.Description, k.Quantity, k.UnitCost, CostService.Money(k.Quantity * k.UnitCost), k.CreatedByLabel, x.Status != WorkOrderStatus.Cancelled, k.StockItemId != null)).ToList(),
             costs?.Sum(k => CostService.Money(k.Quantity * k.UnitCost)),
             [.. files.Select(f => new WoFile(f.Id, f.FileName, f.ContentType, f.Stage, f.ContentType.StartsWith("image/"), f.CreatedAt))],
             allowed, canEdit, canWork && !finished, canCosts && x.Status != WorkOrderStatus.Cancelled && !ticketDone,
@@ -481,9 +494,52 @@ public sealed class WorkOrderService(IAppDb db, IClock clock, AuditWriter audit,
         if (!w.Has(Permissions.WorkOrdersCosts)) throw DomainException.Denied(Permissions.WorkOrdersCosts);
         if (wo.Status == WorkOrderStatus.Cancelled) throw DomainException.Conflict("This work order is cancelled.");
         var row = await db.WorkOrderCosts.FirstOrDefaultAsync(x => x.Id == costId && x.WorkOrderId == id, ct) ?? throw DomainException.NotFound("Cost line");
-        db.WorkOrderCosts.Remove(row);
-        audit.Record("workorder.cost.delete", "work_order", id.ToString(), Outcome.Success, client, p.UserId, p.Email, new Dictionary<string, string> { ["number"] = wo.Number, ["description"] = row.Description });
-        await SaveAsync(ct);
+        await db.InTransactionAsync(async () =>
+        {
+            db.WorkOrderCosts.Remove(row);
+            audit.Record("workorder.cost.delete", "work_order", id.ToString(), Outcome.Success, client, p.UserId, p.Email, new Dictionary<string, string> { ["number"] = wo.Number, ["description"] = row.Description });
+            if (row is { StockItemId: { } itemId, StockLocationId: { } placeId, StockQuantity: > 0 })
+            {
+                // INV-005: a part drawn from stock goes back to where it came from
+                var item = await db.InventoryItems.AsNoTracking().FirstAsync(i => i.Id == itemId, ct);
+                await inventory.PostAsync(item, placeId, row.StockQuantity.Value, StockMovementKind.Adjustment, row.UnitCost, $"Returned from {wo.Number}", id, p.UserId, ct);
+                audit.Record("workorder.part_returned", "work_order", id.ToString(), Outcome.Success, client, p.UserId, p.Email,
+                    new Dictionary<string, string> { ["number"] = wo.Number, ["sku"] = item.Sku, ["quantity"] = row.StockQuantity.Value.ToString() });
+            }
+            await SaveAsync(ct);
+            return true;
+        }, ct);
+        return await BuildAsync(wo, w, ct);
+    }
+
+    /// <summary>INV-005. A part for this work order taken from stock at a place: an issue movement in the ledger (grouped under the work order) and a part cost
+    /// line at the item's cost, in one transaction. Not for vendor accounts, who do not see the organisation's stock.</summary>
+    public async Task<WorkOrderDetail> AddStockPartAsync(Guid id, AddStockPartRequest req, SessionPrincipal p, ClientInfo client, CancellationToken ct = default)
+    {
+        var (wo, _, w) = await LoadAsync(id, p, null, ct);
+        if (!w.Has(Permissions.WorkOrdersCosts) || w.VendorId is not null) throw DomainException.Denied(Permissions.WorkOrdersCosts);
+        if (wo.Status == WorkOrderStatus.Cancelled) throw DomainException.Conflict("This work order is cancelled.");
+        var e = new Dictionary<string, string>();
+        var item = req.ItemId is { } iid ? await db.InventoryItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == iid && i.ArchivedAt == null, ct) : null;
+        if (item is null) e["itemId"] = "Choose a stock item.";
+        if (req.LocationId is not { } loc || !await db.Locations.AnyAsync(l => l.Id == loc, ct)) e["locationId"] = "Choose the place it comes from.";
+        if (req.Quantity is not { } qty || qty < 1 || qty > InventoryRules.MaxQuantity) e["quantity"] = "Use 1 or more.";
+        if (e.Count > 0) throw Invalid(e);
+        var n = req.Quantity!.Value;
+        await db.InTransactionAsync(async () =>
+        {
+            await inventory.PostAsync(item!, req.LocationId!.Value, -n, StockMovementKind.Issue, item!.UnitCost, $"{wo.Number} · {(wo.Title.Length > 200 ? wo.Title[..200] : wo.Title)}", id, p.UserId, ct);
+            db.WorkOrderCosts.Add(new WorkOrderCost
+            {
+                WorkOrderId = id, Kind = "part", Description = $"{item.Name} ({item.Sku})", Quantity = n, UnitCost = item.UnitCost ?? 0, CreatedById = p.UserId, CreatedByLabel = p.Name,
+                CreatedAt = clock.UtcNow, StockItemId = item.Id, StockLocationId = req.LocationId, StockQuantity = n,
+            });
+            wo.UpdatedAt = clock.UtcNow;
+            audit.Record("workorder.part_from_stock", "work_order", id.ToString(), Outcome.Success, client, p.UserId, p.Email,
+                new Dictionary<string, string> { ["number"] = wo.Number, ["sku"] = item.Sku, ["quantity"] = n.ToString() });
+            await SaveAsync(ct);
+            return true;
+        }, ct);
         return await BuildAsync(wo, w, ct);
     }
 
@@ -507,38 +563,51 @@ public sealed class WorkOrderService(IAppDb db, IClock clock, AuditWriter audit,
         return await attachments.OpenAsync(wo.TicketId, fileId, ct);
     }
     // ================================================================ summary (module analytics, docs/52)
-    /// <summary>Counts over the work orders this person may see (the list's scope): what is open, late or due this week, what was done in the last 30 days
-    /// and how quickly, created vs done per week for 12 weeks, and the open work per vendor.</summary>
-    public async Task<WorkOrderSummary> SummaryAsync(SessionPrincipal p, CancellationToken ct = default)
+    /// <summary>Counts over the work orders this person may see (the list's scope): what is open, late or due this week, what was done in the period
+    /// (<paramref name="days"/>, default 30) and how quickly, overall and per service category, created vs done per week (at least 12 weeks, more for a longer
+    /// period), and the open work per vendor.</summary>
+    public async Task<WorkOrderSummary> SummaryAsync(SessionPrincipal p, int? days = null, CancellationToken ct = default)
     {
         var w = await WhoAsync(p, ct);
         var q = await VisibleAsync(w, ct);
-        var now = clock.UtcNow; var week = now.AddDays(7); var d30 = now.AddDays(-30); var d90 = now.AddDays(-90);
+        var period = InsightWindow.Of(days, 30);
+        var now = clock.UtcNow; var week = now.AddDays(7); var since = now.AddDays(-period);
         var open = q.Where(x => x.Status != WorkOrderStatus.Done && x.Status != WorkOrderStatus.Cancelled);
         var groups = await open.GroupBy(x => new { x.Status, Vendor = x.VendorId != null }).Select(g => new
         {
             g.Key.Status, g.Key.Vendor, N = g.Count(), Overdue = g.Count(x => x.DueAt != null && x.DueAt < now), Week = g.Count(x => x.DueAt != null && x.DueAt >= now && x.DueAt <= week),
         }).ToListAsync(ct);
         var done = q.Where(x => x.Status == WorkOrderStatus.Done && x.CompletedAt != null);
-        var done30 = await done.Where(x => x.CompletedAt >= d30).GroupBy(x => 1).Select(g => new
+        var inPeriod = done.Where(x => x.CompletedAt >= since);
+        var donePeriod = await inPeriod.GroupBy(x => 1).Select(g => new
         {
             N = g.Count(), OnTime = g.Count(x => x.DueAt != null && x.CompletedAt <= x.DueAt), Late = g.Count(x => x.DueAt != null && x.CompletedAt > x.DueAt),
         }).FirstOrDefaultAsync(ct);
-        var avg = await done.Where(x => x.CompletedAt >= d90).Select(x => (double?)(x.CompletedAt!.Value - x.CreatedAt).TotalHours).AverageAsync(ct);
+        var avg = await inPeriod.Select(x => (double?)(x.CompletedAt!.Value - x.CreatedAt).TotalHours).AverageAsync(ct);
+        var perCategory = await (from x in inPeriod
+                                 join t in db.Tickets on x.TicketId equals t.Id
+                                 join s in db.Services on t.ServiceId equals s.Id
+                                 group x by s.CategoryId into g
+                                 select new { g.Key, N = g.Count(), Avg = g.Average(x => (x.CompletedAt!.Value - x.CreatedAt).TotalHours) }).ToListAsync(ct);
+        var catIds = perCategory.Select(x => x.Key).ToList();
+        var catNames = await db.ServiceCategories.AsNoTracking().Where(c => catIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Name, ct);
 
-        var start = new DateTimeOffset(now.UtcDateTime.Date.AddDays(-83), TimeSpan.Zero);
+        var weeks = Math.Clamp((period + 6) / 7, 12, 53);
+        var start = new DateTimeOffset(now.UtcDateTime.Date.AddDays(-(weeks * 7 - 1)), TimeSpan.Zero);
         var createdPerWeek = await q.Where(x => x.CreatedAt >= start).GroupBy(x => Math.Floor((x.CreatedAt - start).TotalDays / 7)).Select(g => new { W = g.Key, N = g.Count() }).ToDictionaryAsync(x => (int)x.W, x => x.N, ct);
         var donePerWeek = await done.Where(x => x.CompletedAt >= start).GroupBy(x => Math.Floor((x.CompletedAt!.Value - start).TotalDays / 7)).Select(g => new { W = g.Key, N = g.Count() }).ToDictionaryAsync(x => (int)x.W, x => x.N, ct);
-        var weekly = Enumerable.Range(0, 12).Select(i => new WeekPoint(start.AddDays(7 * i).ToString("yyyy-MM-dd"), createdPerWeek.GetValueOrDefault(i), donePerWeek.GetValueOrDefault(i))).ToList();
+        var weekly = Enumerable.Range(0, weeks).Select(i => new WeekPoint(start.AddDays(7 * i).ToString("yyyy-MM-dd"), createdPerWeek.GetValueOrDefault(i), donePerWeek.GetValueOrDefault(i))).ToList();
 
         var perVendor = await open.Where(x => x.VendorId != null).GroupBy(x => x.VendorId!.Value).Select(g => new { g.Key, N = g.Count() }).OrderByDescending(x => x.N).Take(6).ToListAsync(ct);
         var vendorIds = perVendor.Select(x => x.Key).ToList();
         var vendorNames = await db.Vendors.AsNoTracking().Where(v => vendorIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id, v => v.Name, ct);
 
         WorkOrderStatus[] order = [WorkOrderStatus.Open, WorkOrderStatus.InProgress, WorkOrderStatus.OnHold];
-        return new WorkOrderSummary(groups.Sum(x => x.N), groups.Sum(x => x.Overdue), groups.Sum(x => x.Week), done30?.N ?? 0, done30?.OnTime ?? 0, done30?.Late ?? 0,
+        return new WorkOrderSummary(period, groups.Sum(x => x.N), groups.Sum(x => x.Overdue), groups.Sum(x => x.Week), donePeriod?.N ?? 0, donePeriod?.OnTime ?? 0, donePeriod?.Late ?? 0,
             avg is null ? null : Math.Round(avg.Value, 1), groups.Where(x => !x.Vendor).Sum(x => x.N), groups.Where(x => x.Vendor).Sum(x => x.N),
             [.. order.Select(s => new CountItem(Name(s), Name(s), groups.Where(x => x.Status == s).Sum(x => x.N)))], weekly,
-            [.. perVendor.Select(x => new CountItem(x.Key.ToString(), vendorNames.GetValueOrDefault(x.Key) ?? "—", x.N))]);
+            [.. perVendor.Select(x => new CountItem(x.Key.ToString(), vendorNames.GetValueOrDefault(x.Key) ?? "—", x.N))],
+            [.. perCategory.OrderByDescending(x => x.Avg).ThenBy(x => catNames.GetValueOrDefault(x.Key), StringComparer.OrdinalIgnoreCase).Take(10)
+                .Select(x => new CategoryTime(x.Key.ToString(), catNames.GetValueOrDefault(x.Key) ?? "—", x.N, Math.Round(x.Avg, 1)))]);
     }
 }

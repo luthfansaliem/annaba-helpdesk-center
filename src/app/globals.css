@@ -263,7 +263,7 @@ td{padding:9px 12px;border-top:1px solid var(--line);font-size:13px;vertical-ali
 .panel-head:has(.panel-desc){margin-bottom:14px} /* breathing room between a panel's description and what follows */
 .panel-desc{color:var(--ink-mid)}
 .panel-actions{margin-left:auto;display:flex;gap:10px}
-.field-error{color:var(--red);font-size:11px;margin-top:4px}
+.field-error{color:var(--red-ink);font-size:11px;margin-top:4px}
 .ctl.invalid{border-color:var(--red)}
 .fld select{border:0;outline:0;background:none;appearance:none;font-size:12px;font-weight:500;color:var(--navy);width:100%;line-height:1.3;cursor:pointer}
 .overlay{position:fixed;inset:0;background:rgba(14,27,77,.45);display:grid;place-items:center;padding:20px;z-index:50}
@@ -625,3 +625,32 @@ a.kpi:hover{border-color:var(--line-2);background:var(--hover)}
 .tk-head .back-link{display:flex;width:fit-content}
 .tk-head .num{display:block;margin-bottom:2px}
 .tk-head h1 .tk-no{color:var(--blue-ink)}
+/* module summaries: "At a glance" title with its period (docs/54) */
+.glance-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
+.glance-bar h2{margin:0;font-size:15px;font-weight:700;color:var(--ink-strong)}
+.glance-bar small{display:block;margin-top:2px}
+/* stat icon chips carry pastel inline backgrounds made for the light theme; in dark mode tint them from their own icon colour */
+html[data-theme="dark"] .sic{background:color-mix(in srgb,currentColor 20%,transparent)!important}
+/* bookings timeline (R3-1, docs/56) */
+.tl{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow-x:auto;margin-top:10px}
+.tl-head,.tl-row{display:grid;grid-template-columns:minmax(170px,230px) minmax(560px,1fr);min-width:760px}
+.tl-head{background:var(--surface-2);border-bottom:1px solid var(--line);font-size:12px;color:var(--ink-mid);font-weight:600}
+.tl-head .tl-name{padding:8px 12px}
+.tl-scale{position:relative;height:32px}
+.tl-scale span{position:absolute;top:9px;transform:translateX(-50%);font-variant-numeric:tabular-nums}
+.tl-scale span:first-child{transform:none;padding-left:4px}.tl-scale span:last-child{transform:translateX(-100%);padding-right:4px}
+.tl-row+.tl-row{border-top:1px solid var(--line)}
+.tl-row .tl-name{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px 8px 12px;min-width:0}
+.tl-label{display:flex;flex-direction:column;min-width:0;font-weight:600;color:var(--ink-strong)}
+.tl-label small{font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-track{position:relative;min-height:52px;border-left:1px solid var(--line)}
+.tl-track.can{cursor:pointer}.tl-track.can:hover{background:var(--hover)}
+.tl-grid{position:absolute;top:0;bottom:0;width:1px;background:var(--line);opacity:.7}
+.tl-closed{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(135deg,var(--surface-2) 0 6px,transparent 6px 12px);display:grid;place-items:center;font-size:12px;color:var(--muted);cursor:not-allowed}
+.tl-bar{position:absolute;top:8px;bottom:8px;border-radius:8px;border:1px solid var(--blue);background:var(--blue-50);color:var(--blue-ink);font:inherit;font-size:12px;line-height:1.25;text-align:left;padding:4px 7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;z-index:1}
+.tl-bar.mine{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tl-bar:focus-visible{outline:2px solid var(--ink-strong);outline-offset:1px}
+.tl-buffer{position:absolute;top:14px;bottom:14px;background:repeating-linear-gradient(135deg,var(--line-2) 0 3px,transparent 3px 6px);border-radius:0 6px 6px 0}
+.tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:2;pointer-events:none}
+.tl-bar.pending{border-style:dashed;background:var(--orange-50);color:var(--orange-ink);border-color:var(--orange)}
+.tl-bar.mine.pending{background:var(--orange-50);color:var(--orange-ink)}

@@ -6,7 +6,7 @@ public sealed record PagedResult<T>(IReadOnlyList<T> Data, int Page, int PageSiz
 
 public sealed record UserListItem(Guid Id, string Name, string Email, string Status, bool Locked, bool Verified, RoleRef[] Roles, DateTimeOffset? LastLoginAt, DateTimeOffset CreatedAt, bool MfaEnabled, long? AvatarVersion = null, bool Manageable = true);
 public sealed record UserDetail(Guid Id, string Name, string Email, string Status, bool Locked, bool Verified, RoleRef[] Roles, DateTimeOffset? LastLoginAt, DateTimeOffset CreatedAt, bool MfaEnabled,
-    string? Phone, string? Department, string? JobTitle, string[] EffectivePermissions, int ActiveSessions, int Version, long? AvatarVersion = null, Guid? ManagerId = null, string? ManagerName = null);
+    string? Phone, string? Department, string? JobTitle, string[] EffectivePermissions, int ActiveSessions, int Version, long? AvatarVersion = null, Guid? ManagerId = null, string? ManagerName = null, string? EmployeeId = null, string? SiteName = null, string? ExternalId = null);
 public sealed record SetManagerRequest(Guid? ManagerId);
 
 public sealed record UserQuery(string? Q, string? Status, string? Role, bool? Verified, string? Sort, string? Dir, int Page = 1, int PageSize = 10);

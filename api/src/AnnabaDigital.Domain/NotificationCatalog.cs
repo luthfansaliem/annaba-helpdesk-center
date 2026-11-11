@@ -19,6 +19,12 @@ public static class NotificationCatalog
         new("workorder.assigned", "work", true), new("workorder.done", "work", false),
         new("vendor.contract", "vendors", true),
         new("budget.threshold", "costs", true),
+        new("booking.changed", "bookings", true), new("booking.approval", "bookings", true), new("booking.decided", "bookings", true), new("booking.reminder", "bookings", false),
+        new("vehicle.alert", "bookings", true), new("resource.document", "bookings", true),
+        new("visitor.arrived", "visitors", true), new("visitor.flagged", "visitors", true),
+        new("mail.arrived", "visitors", true), new("mail.sent", "visitors", false),
+        new("stock.low", "inventory", true),
+        new("supply.new", "inventory", true), new("supply.approval", "inventory", true), new("supply.update", "inventory", true),
     ];
 
     public static Kind? Find(string? key) => All.FirstOrDefault(k => k.Key == key);

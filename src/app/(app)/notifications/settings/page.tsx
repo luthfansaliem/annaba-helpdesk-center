@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { MyChannelsPanel } from "@/components/notifications/my-channels";
 import { Panel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/field";
@@ -33,11 +34,25 @@ const KIND: Record<string, () => { title: string; hint: string }> = {
   "workorder.assigned": () => ({ title: t("A work order is given to you"), hint: t("You are the person who should do it.") }),
   "workorder.done": () => ({ title: t("A work order on your ticket is done"), hint: t("For the person who works the ticket.") }),
   "ticket.low_rating": () => ({ title: t("A request was rated low (1–2)"), hint: t("For team leads, or the people who see every ticket when the team has no lead.") }),
+  "booking.approval": () => ({ title: t("A booking needs your approval"), hint: t("For people who approve bookings of rooms and vehicles that need it.") }),
+  "booking.decided": () => ({ title: t("Your booking is approved or not"), hint: t("Also when nobody approved it before it started.") }),
+  "booking.reminder": () => ({ title: t("A booking starts in 30 minutes"), hint: t("With a reminder to check in when the room asks for it.") }),
+  "stock.low": () => ({ title: t("A stock item runs low"), hint: t("Once each time an item at a place falls to its reorder level.") }),
+  "supply.new": () => ({ title: t("A supply request to handle"), hint: t("For the supplies desk: a new request, or one that was approved.") }),
+  "supply.approval": () => ({ title: t("A supply request needs your approval"), hint: t("When someone who reports to you asks for supplies above the approval amount.") }),
+  "supply.update": () => ({ title: t("News on my supply request"), hint: t("Approved, not approved, ready to collect or closed.") }),
+  "mail.arrived": () => ({ title: t("Mail or a parcel for you is at reception"), hint: t("At once, and once more if it is still waiting after two days.") }),
+  "mail.sent": () => ({ title: t("Your outgoing mail has left"), hint: t("With the courier and the waybill number.") }),
+  "visitor.arrived": () => ({ title: t("Your visitor has arrived"), hint: t("When reception checks in someone who is visiting you.") }),
+  "visitor.flagged": () => ({ title: t("Someone on the block list is registered"), hint: t("For people who keep the visitor block list.") }),
+  "vehicle.alert": () => ({ title: t("A vehicle needs a driver or came back damaged"), hint: t("For people who manage bookings.") }),
+  "resource.document": () => ({ title: t("A vehicle document or driving licence expires"), hint: t("30 days before and on the day: STNK, insurance, KIR, and your own licence.") }),
+  "booking.changed": () => ({ title: t("Someone books for you, or cancels your booking"), hint: t("When a colleague books a room or vehicle in your name, or General Affairs cancels your booking.") }),
   "budget.threshold": () => ({ title: t("A budget reaches 80% or is used up"), hint: t("For people who manage budgets, once at each level.") }),
   "vendor.contract": () => ({ title: t("A vendor contract ends soon or has ended"), hint: t("For people who manage vendors: 30 days before, and when it ends.") }),
   "asset.warranty": () => ({ title: t("An asset's warranty ends soon or has ended"), hint: t("For people who manage assets: 30 days before, and when it ends.") }),
 };
-const GROUPS: [string, () => string][] = [["tickets", () => t("Tickets and requests")], ["sla", () => t("Service levels")], ["approvals", () => t("Approvals")], ["work", () => t("Work orders")], ["assets", () => t("Assets")], ["vendors", () => t("Vendors")], ["costs", () => t("Costs")]];
+const GROUPS: [string, () => string][] = [["tickets", () => t("Tickets and requests")], ["sla", () => t("Service levels")], ["approvals", () => t("Approvals")], ["work", () => t("Work orders")], ["assets", () => t("Assets")], ["vendors", () => t("Vendors")], ["costs", () => t("Costs")], ["bookings", () => t("Bookings")], ["visitors", () => t("Visitors")], ["inventory", () => t("Inventory and supplies")]];
 
 function Settings({ prefs, reload }: { prefs: NotificationPrefs; reload: () => void }) {
   const run = useRun();
@@ -96,6 +111,7 @@ export default function NotificationSettingsPage() {
     <>
       <PageHeader title={t("Notification settings")} description={t("Choose what you are told about, and whether it also reaches you by e-mail.")}
         actions={<Button href="/notifications"><ArrowLeft size={14} /> {t("Notifications")}</Button>} />
+      <MyChannelsPanel />
       <QueryBoundary q={q} rows={6}>{(p) => <Settings prefs={p} reload={q.reload} />}</QueryBoundary>
     </>
   );

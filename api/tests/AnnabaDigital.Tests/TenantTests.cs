@@ -50,7 +50,7 @@ public sealed class TenantTests(PostgresFixture fx)
         Assert.Equal($"Org {slug}", me.GetProperty("tenantName").GetString()); Assert.False(me.GetProperty("isPlatform").GetBoolean());
         Assert.Contains("super_admin", me.GetProperty("roles").EnumerateArray().Select(r => r.GetString()));
         var roles = await _seed.Db(db => db.Roles.IgnoreQueryFilters().Where(r => r.TenantId == id).Select(r => r.Key).ToListAsync());
-        Assert.Equal(["ga_agent", "ga_manager", "ga_supervisor", "security_auditor", "super_admin", "user", "user_admin", "vendor"], roles.Order().ToArray()); // every organisation owns its copy of each system role
+        Assert.Equal(["ga_agent", "ga_manager", "ga_supervisor", "receptionist", "security_auditor", "super_admin", "user", "user_admin", "vendor"], roles.Order().ToArray()); // every organisation owns its copy of each system role
         Assert.NotEmpty(await _seed.Db(db => db.AuditEvents.Where(a => a.Action == "tenant.create" && a.TargetId == id.ToString()).ToListAsync()));
 
         // validation and uniqueness

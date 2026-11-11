@@ -82,6 +82,10 @@ public class WorkOrderCost : ITenantScoped
     public Guid CreatedById { get; set; }
     public string CreatedByLabel { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
+    /// <summary>INV-005: set when the part was drawn from stock (the ledger's issue movements share the work order id); removing the line puts it back.</summary>
+    public Guid? StockItemId { get; set; }
+    public Guid? StockLocationId { get; set; }
+    public int? StockQuantity { get; set; }
 }
 
 /// <summary>TKT-007. A reusable checklist (for example "AC service: clean filters, check refrigerant…"), copied into a work order when chosen; preventive maintenance will use them too.</summary>
@@ -96,4 +100,13 @@ public class ChecklistTemplate : ITenantScoped
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public int Version { get; set; } = 1;
+}
+
+/// <summary>ADR-GA-07. An Idempotency-Key a person's device used for a change (field mode replays), kept 7 days so the change is applied once.</summary>
+public class OfflineOp : ITenantScoped
+{
+    public Guid TenantId { get; set; } = Tenant.DefaultId;
+    public Guid UserId { get; set; }
+    public string Key { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
 }

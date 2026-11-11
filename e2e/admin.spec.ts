@@ -73,7 +73,7 @@ test("roles: create → matrix change → re-authentication dialog → saved and
   await page.goto("/roles");
   await page.getByRole("button", { name: /create role/i }).click();
   const dlg = page.getByRole("dialog", { name: "Create role" });
-  await dlg.getByLabel("Name").fill(name);
+  await dlg.locator("#r-name").fill(name);   // by id: a permission description in the same form mentions "names"
   await dlg.getByLabel("Description").fill("created by e2e");
   await dlg.locator('input[type=checkbox]').first().check();
   await dlg.getByRole("button", { name: /save role/i }).click();

@@ -84,7 +84,8 @@ public sealed class UserAdminService(
         return new UserDetail(u.Id, u.Name, u.Email, u.Status.ToString().ToLowerInvariant(), u.LockedUntil > now, u.EmailVerifiedAt != null,
             u.UserRoles.Select(r => new RoleRef(r.Role!.Id, r.Role.Key, r.Role.Name)).OrderBy(r => r.Name).ToArray(), u.LastLoginAt, u.CreatedAt,
             u.MfaFactors.Any(f => f.ConfirmedAt != null), u.Profile?.Phone, u.Profile?.Department, u.Profile?.JobTitle, [.. perms.Order()], live, u.Version, avatarAt?.ToUnixTimeMilliseconds(),
-            u.Profile?.ManagerId, u.Profile?.ManagerId is { } mid ? await db.Users.AsNoTracking().Where(x => x.Id == mid).Select(x => x.Name).FirstOrDefaultAsync(ct) : null);
+            u.Profile?.ManagerId, u.Profile?.ManagerId is { } mid ? await db.Users.AsNoTracking().Where(x => x.Id == mid).Select(x => x.Name).FirstOrDefaultAsync(ct) : null,
+            u.Profile?.EmployeeId, u.Profile?.SiteId is { } sid ? await db.Locations.AsNoTracking().Where(l => l.Id == sid).Select(l => l.Name).FirstOrDefaultAsync(ct) : null, u.Profile?.ExternalId);
     }
 
     public async Task<UserStats> StatsAsync(SessionPrincipal actor, CancellationToken ct = default)

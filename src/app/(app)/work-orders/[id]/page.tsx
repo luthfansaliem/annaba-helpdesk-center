@@ -2,7 +2,7 @@
 
 import { Suspense, use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Camera, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Camera, PackageMinus, Pencil, Trash2 } from "lucide-react";
 import { Panel } from "@/components/ui/card";
 import { Button, IconButton } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Checkbox, Field, SelectInput, TextInput } from "@/components/ui/field";
 import { QueryBoundary } from "@/components/query-boundary";
 import { Require } from "@/components/page-guard";
 import { WoStatusBadge, WorkOrderDrawer } from "@/components/workorders/wo-bits";
+import { StockPartDialog } from "@/components/workorders/stock-part";
 import { del, get, post } from "@/lib/api/client";
 import type { WorkOrderDetail } from "@/lib/api/types";
 import { FILE_ACCEPT, MAX_FILE_BYTES, uploadFile } from "@/lib/files";
@@ -55,7 +56,7 @@ function Detail({ id }: { id: string }) {
   const [action, setAction] = useState<Act | null>(null); const [editing, setEditing] = useState(false);
   const [minutes, setMinutes] = useState(""); const [date, setDate] = useState(""); const [timeNote, setTimeNote] = useState("");
   const [kind, setKind] = useState("part"); const [desc, setDesc] = useState(""); const [qty, setQty] = useState("1"); const [unit, setUnit] = useState("");
-  const [fe, setFe] = useState<Record<string, string>>({}); const [upload, setUpload] = useState(""); const [busy, setBusy] = useState(false);
+  const [fe, setFe] = useState<Record<string, string>>({}); const [upload, setUpload] = useState(""); const [busy, setBusy] = useState(false); const [part, setPart] = useState(false);
   const set = (w: WorkOrderDetail) => q.setData(w);
 
   return (
@@ -161,7 +162,7 @@ function Detail({ id }: { id: string }) {
                 <div className="stack">
                   {w.costs.length > 0 && <div className="tbl-wrap"><table className="tbl" aria-label={t("Parts and costs")}>
                     <thead><tr><th scope="col">{t("What")}</th><th scope="col">{t("Qty")}</th><th scope="col">{t("Unit cost")}</th><th scope="col">{t("Total")}</th><th scope="col"><span className="sr-only">{t("Actions")}</span></th></tr></thead>
-                    <tbody>{w.costs.map((c) => <tr key={c.id}><td>{c.description}<br /><small>{kindLabel(c.kind)} · {c.by}</small></td><td>{c.quantity}</td><td>{money(c.unitCost)}</td><td>{money(c.total)}</td>
+                    <tbody>{w.costs.map((c) => <tr key={c.id}><td>{c.description}<br /><small>{kindLabel(c.kind)}{c.fromStock ? ` · ${t("from stock")}` : ""} · {c.by}</small></td><td>{c.quantity}</td><td>{money(c.unitCost)}</td><td>{money(c.total)}</td>
                       <td>{c.canDelete && w.canCosts && <IconButton label={`${t("Remove")} ${c.description}`} onClick={() => void remove(`/api/work-orders/${w.id}/costs/${c.id}`)}><Trash2 size={14} /></IconButton>}</td></tr>)}</tbody>
                   </table></div>}
                   {w.canCosts && <form className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end" }} noValidate onSubmit={addCost} aria-label={t("Add a cost")}>
@@ -171,10 +172,12 @@ function Detail({ id }: { id: string }) {
                     <Field label={t("Unit cost")} htmlFor="wc-unit" error={fe.unitCost}><TextInput id="wc-unit" type="number" min={0} step="0.01" value={unit} onChange={(e) => setUnit(e.target.value)} /></Field>
                     <Button type="submit" size="sm" disabled={!desc}>{t("Add")}</Button>
                   </form>}
+                  {w.canCosts && !user?.vendorName && w.status !== "cancelled" && <span><Button size="sm" onClick={() => setPart(true)}><PackageMinus size={14} /> {t("Part from stock")}</Button></span>}
                 </div>
               </Panel>}
             </div>
           </div>
+          <StockPartDialog wo={w} open={part} onClose={() => setPart(false)} onDone={set} />
           <ActionDialog wo={w} action={action} onClose={() => setAction(null)} onDone={set} />
           <WorkOrderDrawer open={editing} onClose={() => setEditing(false)} onDone={set} ticketId={w.ticketId} editing={w} resolveTicket={false} />
         </>

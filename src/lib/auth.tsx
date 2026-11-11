@@ -8,6 +8,7 @@ import { useToast } from "./toast";
 import { t, useLang } from "@/i18n";
 import { Overlay } from "@/components/ui/overlay";
 import { Button } from "@/components/ui/button";
+import { wipeFieldData } from "@/lib/offline/field-store";
 import { OtpInput } from "@/components/ui/otp-input";
 
 export type AuthStatus = "loading" | "authed" | "anon" | "mfa" | "locked";
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     try { await post("/api/auth/logout", {}, { noRoute: true, noReauth: true }); } catch { /* already signed out */ }
+    await wipeFieldData().catch(() => { /* nothing kept */ });   // ADR-GA-07: field mode data leaves the device with the person
     resetCsrf(); setUserState(null); setStatus("anon"); router.replace("/login");
   }, [router]);
 

@@ -103,4 +103,8 @@ public class OutboxEmail : ITenantScoped
     public DateTimeOffset? FailedAt { get; set; }
     /// <summary>Exception type name only; provider responses are never stored.</summary>
     public string? LastError { get; set; }
+    /// <summary>An attached file (scheduled reports); the content is cleared with the body once the mail is sent or given up.</summary>
+    public string? AttachmentName { get; set; }
+    public string? AttachmentType { get; set; }
+    public byte[]? AttachmentContent { get; set; }
 }

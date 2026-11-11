@@ -36,7 +36,7 @@ async function toError(r: Response): Promise<ApiError> {
   return new ApiError(r.status, e?.code ?? (r.status === 404 ? "not_found" : "error"), e?.message ?? `Request failed (${r.status}).`, e?.fields ?? undefined, e?.requestId, retry);
 }
 
-export type Opts = { method?: string; body?: unknown; rawBody?: BodyInit; contentType?: string; query?: Record<string, string | number | boolean | undefined | null>; signal?: AbortSignal; noRoute?: boolean; noReauth?: boolean };
+export type Opts = { method?: string; body?: unknown; rawBody?: BodyInit; contentType?: string; query?: Record<string, string | number | boolean | undefined | null>; signal?: AbortSignal; noRoute?: boolean; noReauth?: boolean; headers?: Record<string, string> };
 
 function url(path: string, query?: Opts["query"]) {
   if (!query) return path;
@@ -49,7 +49,7 @@ function url(path: string, query?: Opts["query"]) {
 export async function api<T = void>(path: string, opts: Opts = {}, retried = false): Promise<T> {
   const method = (opts.method ?? "GET").toUpperCase();
   const unsafe = method !== "GET" && method !== "HEAD";
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...(opts.headers ?? {}) };
   let body: BodyInit | undefined;
   if (opts.rawBody !== undefined) { body = opts.rawBody; if (opts.contentType) headers["Content-Type"] = opts.contentType; }
   else if (opts.body !== undefined) { body = JSON.stringify(opts.body); headers["Content-Type"] = "application/json"; }

@@ -14,7 +14,8 @@ using AnnabaDigital.Domain.Security;
 namespace AnnabaDigital.Application.Helpdesk;
 
 public sealed record CostSettingsDto(string Currency, decimal? LabourRatePerHour);
-public sealed record CostRow(string Key, string Label, decimal Part, decimal Labour, decimal Service, decimal Invoice, decimal Other, decimal Time, decimal Total, int WorkOrders);
+/// <summary><c>Vehicle</c> (R3-3): fuel, toll and parking of vehicle trips returned in the period; they count in <c>Total</c> but not in <c>WorkOrders</c>.</summary>
+public sealed record CostRow(string Key, string Label, decimal Part, decimal Labour, decimal Service, decimal Invoice, decimal Other, decimal Time, decimal Total, int WorkOrders, decimal Vehicle = 0);
 public sealed record CostReport(DateOnly From, DateOnly To, string By, string Currency, decimal? LabourRatePerHour, IReadOnlyList<CostRow> Rows, CostRow Total);
 public sealed record CostCenterItem(Guid Id, string Code, string Name, bool Archived, IReadOnlyList<VendorSiteItem> Places, int Version);
 public sealed record SaveCostCenterRequest(string? Code, string? Name, Guid[]? LocationIds, int? Version = null);
@@ -79,6 +80,13 @@ public sealed partial class CostService(IAppDb db, IClock clock, AuditWriter aud
                                select new { m.WorkDate, m.Minutes, WorkOrderId = w.Id, t.LocationId, t.ServiceId, t.RequesterId, w.VendorId, w.AssetId }).Take(MaxRows).ToListAsync(ct);
             list.AddRange(times.Select(x => new Line(x.WorkDate, "time", Money(x.Minutes * r / 60m), x.WorkOrderId, x.LocationId, x.ServiceId, x.RequesterId, x.VendorId, x.AssetId)));
         }
+        // vehicle trips (R3-3): on the day the car came back, at the vehicle's place, for the person it was booked for; no work order, service, vendor or asset
+        var trips = await (from t in db.VehicleTrips.AsNoTracking()
+                           join b in db.Bookings.AsNoTracking() on t.BookingId equals b.Id
+                           join v in db.BookableResources.AsNoTracking() on t.ResourceId equals v.Id
+                           where t.ReturnedAt >= start && t.ReturnedAt < end
+                           select new { t.ReturnedAt, Amount = (t.FuelCost ?? 0) + (t.TollCost ?? 0) + (t.ParkingCost ?? 0), v.LocationId, b.BookedForId }).Take(MaxRows).ToListAsync(ct);
+        list.AddRange(trips.Where(x => x.Amount > 0).Select(x => new Line(DateOnly.FromDateTime(x.ReturnedAt!.Value.UtcDateTime), "vehicle", Money(x.Amount), Guid.Empty, x.LocationId, Guid.Empty, x.BookedForId, null, null)));
         return list;
     }
 
@@ -135,8 +143,8 @@ public sealed partial class CostService(IAppDb db, IClock clock, AuditWriter aud
                 case "month": var m = new DateOnly(l.Date.Year, l.Date.Month, 1); return (m.ToString("yyyy-MM"), m.ToString("yyyy-MM"));
                 case "site": return look.Top(l.LocationId) is { } s ? (s.ToString(), look.Places[s].Name) : ("none", "No place");
                 case "cost_center": return look.Center(l.LocationId) is { } c && look.Centers.TryGetValue(c, out var cc) ? (c.ToString(), $"{cc.Code} · {cc.Name}") : ("none", "No cost centre");
-                case "category": return look.Services.TryGetValue(l.ServiceId, out var sv) ? (sv.CategoryId.ToString(), look.Categories.GetValueOrDefault(sv.CategoryId) ?? "—") : ("none", "—");
-                case "service": return (l.ServiceId.ToString(), look.Services.TryGetValue(l.ServiceId, out var s2) ? s2.Name : "—");
+                case "category": return l.Kind == "vehicle" ? ("vehicle", "Vehicle trips") : look.Services.TryGetValue(l.ServiceId, out var sv) ? (sv.CategoryId.ToString(), look.Categories.GetValueOrDefault(sv.CategoryId) ?? "—") : ("none", "—");
+                case "service": return l.Kind == "vehicle" ? ("vehicle", "Vehicle trips") : (l.ServiceId.ToString(), look.Services.TryGetValue(l.ServiceId, out var s2) ? s2.Name : "—");
                 case "department": return departments.TryGetValue(l.RequesterId, out var d) ? (d.ToLowerInvariant(), d) : ("none", "No department");
                 case "vendor": return l.VendorId is { } v ? (v.ToString(), vendors.GetValueOrDefault(v) ?? "—") : ("none", "In-house");
                 default: return l.AssetId is { } a ? (a.ToString(), assets.GetValueOrDefault(a) ?? "—") : ("none", "No asset");
@@ -145,7 +153,7 @@ public sealed partial class CostService(IAppDb db, IClock clock, AuditWriter aud
         static CostRow Row(string key, string label, IReadOnlyCollection<Line> ls)
         {
             decimal Sum(string k) => ls.Where(l => l.Kind == k).Sum(l => l.Amount);
-            return new CostRow(key, label, Sum("part"), Sum("labour"), Sum("service"), Sum("invoice"), Sum("other"), Sum("time"), ls.Sum(l => l.Amount), ls.Select(l => l.WorkOrderId).Distinct().Count());
+            return new CostRow(key, label, Sum("part"), Sum("labour"), Sum("service"), Sum("invoice"), Sum("other"), Sum("time"), ls.Sum(l => l.Amount), ls.Where(l => l.WorkOrderId != Guid.Empty).Select(l => l.WorkOrderId).Distinct().Count(), Sum("vehicle"));
         }
         var rows = lines.GroupBy(KeyOf).Select(g => Row(g.Key.Key, g.Key.Label, [.. g])).ToList();
         rows = group == "month" ? [.. rows.OrderBy(r => r.Key)] : [.. rows.OrderByDescending(r => r.Total).ThenBy(r => r.Label, StringComparer.OrdinalIgnoreCase)];
@@ -157,9 +165,9 @@ public sealed partial class CostService(IAppDb db, IClock clock, AuditWriter aud
         var r = await ReportAsync(from, to, by, ct);
         var sb = new StringBuilder();
         string N(decimal d) => d.ToString("0.00", CultureInfo.InvariantCulture);
-        sb.Append($"{r.By},parts,labour lines,services,vendor invoices,other,labour from time,total ({r.Currency}),work orders\r\n");
+        sb.Append($"{r.By},parts,labour lines,services,vendor invoices,other,labour from time,vehicle trips,total ({r.Currency}),work orders\r\n");
         foreach (var x in r.Rows.Append(r.Total))
-            sb.Append(string.Join(',', MonitoringService.Csv(x.Label), N(x.Part), N(x.Labour), N(x.Service), N(x.Invoice), N(x.Other), N(x.Time), N(x.Total), x.WorkOrders.ToString(CultureInfo.InvariantCulture))).Append("\r\n");
+            sb.Append(string.Join(',', MonitoringService.Csv(x.Label), N(x.Part), N(x.Labour), N(x.Service), N(x.Invoice), N(x.Other), N(x.Time), N(x.Vehicle), N(x.Total), x.WorkOrders.ToString(CultureInfo.InvariantCulture))).Append("\r\n");
         return sb.ToString();
     }
 

@@ -12,7 +12,7 @@ public static class MaintenanceEndpoints
         var g = app.MapGroup("/api/maintenance");
         g.MapGet("/plans", async (string? q, string? status, Guid? assetId, int? page, int? pageSize, MaintenanceService svc, HttpContext ctx)
             => Results.Ok(await svc.ListAsync(q, status, assetId, page ?? 1, pageSize ?? 25, ctx.RequestAborted))).RequirePermission(Permissions.PmRead);
-        g.MapGet("/summary", async (MaintenanceService svc, HttpContext ctx) => Results.Ok(await svc.SummaryAsync(ctx.RequestAborted))).RequirePermission(Permissions.PmRead);
+        g.MapGet("/summary", async (int? days, MaintenanceService svc, HttpContext ctx) => Results.Ok(await svc.SummaryAsync(days, ctx.RequestAborted))).RequirePermission(Permissions.PmRead);
         g.MapGet("/plans/{id:guid}", async (Guid id, MaintenanceService svc, HttpContext ctx) => Results.Ok(await svc.GetAsync(id, ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.PmRead);
         g.MapPost("/plans", async (SavePlanRequest body, MaintenanceService svc, HttpContext ctx) =>
         {

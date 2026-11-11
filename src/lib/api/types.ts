@@ -6,7 +6,7 @@ export type RoleRef = { id: string; key: string; name: string };
 export type StatusCount = { key: string; count: number };
 
 export type UserListItem = { id: string; name: string; email: string; status: string; locked: boolean; verified: boolean; roles: RoleRef[]; lastLoginAt: string | null; createdAt: string; mfaEnabled: boolean; avatarVersion?: number | null; manageable?: boolean };
-export type UserDetail = UserListItem & { phone: string | null; department: string | null; jobTitle: string | null; effectivePermissions: string[]; activeSessions: number; version: number; managerId: string | null; managerName: string | null };
+export type UserDetail = UserListItem & { phone: string | null; department: string | null; jobTitle: string | null; effectivePermissions: string[]; activeSessions: number; version: number; managerId: string | null; managerName: string | null; employeeId: string | null; siteName: string | null; externalId: string | null };
 export type UserStats = { total: number; active: number; pending: number; suspended: number; deactivated: number; locked: number; pendingVerification: number; growthLast12Months: number[]; byStatus: StatusCount[]; byRole: StatusCount[]; recentRegistrations: UserListItem[] };
 export type SessionInfo = { id: string; device: string; browser: string; ip: string | null; createdAt: string; lastActiveAt: string; expiresAt: string };
 export type ActivityItem = { id: number; ts: string; action: string; actor: string | null; target: string; outcome: string };
@@ -134,7 +134,9 @@ export type TicketDetail = {
 export type TicketRating = { score: number | null; comment: string | null; at: string | null; canRate: boolean; rateUntil: string | null };
 export type CsatRow = { key: string; label: string; count: number; average: number | null; satisfiedPercent: number | null; low: number };
 export type CsatComment = { ticketId: string; number: string; subject: string; score: number; comment: string; agent: string | null; at: string };
-export type CsatReport = { days: number; from: string; to: string; by: "agent" | "team" | "site" | "vendor"; ownOnly: boolean; count: number; average: number | null; satisfiedPercent: number | null; low: number; distribution: number[]; rows: CsatRow[]; comments: CsatComment[] };
+export type CsatPoint = { period: string; count: number; satisfied: number; low: number; average: number | null; satisfiedPercent: number | null };
+export type CsatReport = { days: number; from: string; to: string; by: "agent" | "team" | "site" | "vendor"; ownOnly: boolean; count: number; average: number | null; satisfiedPercent: number | null; low: number; distribution: number[]; rows: CsatRow[]; comments: CsatComment[];
+  trendUnit: "week" | "month"; trend: CsatPoint[] };
 export type LegalHoldInfo = { reason: string; placedAt: string; placedBy: string | null };
 export type AssigneeOption = { id: string; name: string; email: string };
 
@@ -241,7 +243,7 @@ export type WorkOrderListItem = { id: string; number: string; title: string; sta
 export type TicketWorkOrders = { resolveTicket: boolean; canManage: boolean; items: WorkOrderListItem[] };
 export type WoTask = { id: string; position: number; text: string; required: boolean; doneAt: string | null; doneBy: string | null; note: string | null };
 export type WoTime = { id: string; userId: string; person: string; minutes: number; date: string; note: string | null; canDelete: boolean };
-export type WoCost = { id: string; kind: "part" | "labour" | "service" | "other"; description: string; quantity: number; unitCost: number; total: number; by: string; canDelete: boolean };
+export type WoCost = { id: string; kind: "part" | "labour" | "service" | "other"; description: string; quantity: number; unitCost: number; total: number; by: string; canDelete: boolean; fromStock: boolean };
 export type WoFile = { id: string; fileName: string; contentType: string; stage: "before" | "after" | null; inline: boolean; createdAt: string };
 export type WorkOrderDetail = {
   id: string; number: string; title: string; instructions: string | null; status: WorkOrderStatus; required: boolean; requireAfterPhoto: boolean; assigneeId: string | null; assigneeName: string | null; teamId: string | null; teamName: string | null;
@@ -294,7 +296,7 @@ export type KbSuggestion = { id: string; title: string; summary: string | null; 
 // ---- cost and budget (R2-8)
 export type CostSettings = { currency: string; labourRatePerHour: number | null };
 export type CostGroup = "month" | "site" | "cost_center" | "category" | "service" | "department" | "vendor" | "asset";
-export type CostRow = { key: string; label: string; part: number; labour: number; service: number; invoice: number; other: number; time: number; total: number; workOrders: number };
+export type CostRow = { key: string; label: string; part: number; labour: number; service: number; invoice: number; other: number; time: number; total: number; workOrders: number; vehicle: number };
 export type CostReport = { from: string; to: string; by: CostGroup; currency: string; labourRatePerHour: number | null; rows: CostRow[]; total: CostRow };
 export type CostCenterItem = { id: string; code: string; name: string; archived: boolean; places: { locationId: string; path: string }[]; version: number };
 export type BudgetItem = { id: string; scope: "cost_center" | "site" | "category"; scopeId: string; scopeName: string; year: number; amount: number; spent: number; percent: number; state: "ok" | "near" | "over"; note: string | null; version: number };
@@ -314,14 +316,89 @@ export type DeliveryItem = { id: string; eventId: string; event: string; attempt
 // ---- vendor portal (R2-11)
 export type VendorPortalUser = { userId: string; name: string; email: string; linkedAt: string };
 
+// ---- bookings (R3-1, docs/56)
+export type ResourceKind = "room" | "vehicle" | "parking" | "equipment";
+export type ResourceItem = { id: string; kind: ResourceKind; name: string; code: string | null; description: string | null; locationId: string | null; place: string | null; capacity: number | null; features: string[];
+  openFrom: string | null; openUntil: string | null; openDays: number; bufferMinutes: number; maxMinutes: number | null; needsApproval: boolean; checkInMinutes: number | null; allowedRoleIds: string[]; archived: boolean; timeZone: string; canBook: boolean; version: number };
+export type BookingItem = { id: string; resourceId: string; resourceName: string; resourceKind: ResourceKind; title: string | null; bookedForId: string | null; bookedFor: string | null; startsAt: string; endsAt: string;
+  blockedUntil: string; attendees: number | null; note: string | null; status: "confirmed" | "cancelled" | "pending" | "rejected" | "released"; mine: boolean; canChange: boolean; cancelReason: string | null; version: number;
+  seriesId: string | null; repeat: "day" | "weekday" | "week" | null; checkedInAt: string | null; canCheckIn: boolean; canDecide: boolean; decisionNote: string | null; needsCheckIn: boolean };
+export type SeriesResult = { seriesId: string; made: BookingItem[]; skipped: { startsAt: string; reason: string }[] };
+export type BookingFeedInfo = { active: boolean; createdAt: string | null; lastReadAt: string | null; url: string | null };
+export type AvailabilityView = { from: string; to: string; rows: { resource: ResourceItem; bookings: BookingItem[]; freeNow: boolean }[] };
+export type BookingSummary = { resources: number; bookingsToday: number; inUseNow: number; freeNow: number; myUpcoming: number; utilisationPercent: number | null; byKind: CountItem[]; next7Days: { day: string; bookings: number }[]; busiest: CountItem[]; pendingApprovals: number; noShows7: number };
+export type PagedBookings = { data: BookingItem[]; page: number; pageSize: number; total: number };
+// ---- vehicles (R3-3, docs/58)
+export type TripItem = { bookingId: string; resourceId: string; resourceName: string; title: string | null; startsAt: string; endsAt: string; bookingStatus: string;
+  needsDriver: boolean; driverId: string | null; driver: string | null; driverLicence: string | null; destination: string | null; purpose: string | null;
+  odometerOut: number | null; pickedUpAt: string | null; odometerIn: number | null; returnedAt: string | null; distance: number | null; fuelCost: number | null; tollCost: number | null; parkingCost: number | null; cost: number;
+  damageNotes: string | null; checklist: { item: string; ok: boolean }[]; canEdit: boolean; canAssignDriver: boolean; canPickUp: boolean; canReturn: boolean; lastOdometer: number | null; version: number };
+export type ResourceDocumentItem = { id: string; resourceId: string; kind: "registration" | "insurance" | "inspection" | "service" | "other"; number: string | null; expiresOn: string; note: string | null; state: "ok" | "soon" | "expired" };
+export type LicenceItem = { userId: string; name: string; email: string; number: string; class: string | null; expiresOn: string; state: "ok" | "soon" | "expired" };
+export type DriverOption = { userId: string; name: string; class: string | null; expiresOn: string; state: "ok" | "soon" | "expired" };
+export type UtilisationRow = { resourceId: string; name: string; kind: string; place: string | null; openHours: number; bookedHours: number; percent: number | null; bookings: number; noShows: number; cancelled: number; trips: number; km: number; tripCost: number };
+export type UtilisationReport = { days: number; from: string; to: string; kind: string | null; rows: UtilisationRow[]; total: UtilisationRow };
+// ---- visitors (R3-4, docs/59)
+export type VisitStatus = "expected" | "checked_in" | "checked_out" | "cancelled" | "no_show";
+export type VisitItem = { id: string; visitorName: string; company: string | null; email: string | null; phone: string | null; vehiclePlate: string | null; hostId: string; host: string | null;
+  locationId: string | null; place: string | null; purpose: string | null; expectedFrom: string; expectedUntil: string; status: VisitStatus; flag: string | null; badgeNumber: string | null; idLast4: string | null;
+  acknowledgedAt: string | null; checkedInAt: string | null; checkedOutAt: string | null; anonymised: boolean; canChange: boolean; canReceive: boolean; version: number };
+export type PagedVisits = { data: VisitItem[]; page: number; pageSize: number; total: number };
+export type VisitSummary = { expectedToday: number; onSiteNow: number; checkedOutToday: number; noShows30: number; flagged: number; visitors30: number; perDay: { day: string; bookings: number }[]; bySite: CountItem[] };
+export type VisitorSettings = { acknowledgement: string | null; askIdLast4: boolean; retentionDays: number };
+export type VisitorBlockItem = { id: string; name: string; company: string | null; reason: string; by: string | null; createdAt: string };
+// ---- mail and courier (R3-5, docs/60)
+export type MailItem = { id: string; direction: "incoming" | "outgoing"; kind: "letter" | "document" | "parcel" | "other"; status: "waiting" | "collected" | "registered" | "sent" | "voided";
+  personId: string; person: string | null; otherParty: string | null; address: string | null; carrier: string | null; waybill: string | null; description: string | null; locationId: string | null; place: string | null;
+  loggedAt: string; doneAt: string | null; collectedBy: string | null; note: string | null; waitingDays: number; anonymised: boolean; canHandle: boolean; version: number };
+export type PagedMail = { data: MailItem[]; page: number; pageSize: number; total: number };
+export type MailSummary = { waiting: number; waitingOver2Days: number; receivedToday: number; collectedToday: number; outgoingPending: number; sentThisWeek: number; oldestWaitingDays: number | null; received30: { day: string; bookings: number }[]; byCarrier: CountItem[] };
+// ---- inventory (R3-6, docs/61)
+export type StockAt = { locationId: string; place: string; quantity: number; low: boolean };
+export type InventoryItem = { id: string; sku: string; name: string; category: string; unit: string; reorderLevel: number; reorderQuantity: number | null; unitCost: number | null; description: string | null;
+  archived: boolean; total: number; low: boolean; stock: StockAt[]; version: number };
+export type StockMove = { id: string; itemId: string; sku: string; item: string; locationId: string; place: string; kind: "receipt" | "issue" | "adjustment" | "transfer_out" | "transfer_in" | "count";
+  quantity: number; balanceAfter: number; unitCost: number | null; reference: string | null; by: string | null; at: string };
+export type ReorderLine = { itemId: string; sku: string; name: string; unit: string; locationId: string; place: string; quantity: number; reorderLevel: number; suggested: number; unitCost: number | null; cost: number | null };
+export type InventorySummary = { items: number; lowLines: number; stockValue: number | null; issued30: number; received30: number; byCategory: CountItem[]; topIssued: CountItem[]; issued30Days: { day: string; bookings: number }[] };
+export type StockTake = { id: string; locationId: string; place: string; note: string | null; startedBy: string | null; startedAt: string; closedAt: string | null;
+  lines: { itemId: string; sku: string; name: string; unit: string; expected: number; counted: number | null; variance: number | null }[]; counted: number; variances: number };
+
+// ---- supply requests (R3-7, docs/62)
+export type SupplyCatalogItem = { id: string; sku: string; name: string; category: string; unit: string; available: number; unitCost: number | null };
+export type SupplyStatus = "pending" | "open" | "partly_fulfilled" | "fulfilled" | "rejected" | "cancelled" | "closed";
+export type SupplyLine = { itemId: string; sku: string; name: string; unit: string; quantity: number; issued: number; backOrder: number; available: number; unitCost: number | null };
+export type SupplyRequest = { id: string; number: string; requesterId: string; requester: string | null; locationId: string; place: string; note: string | null; status: SupplyStatus; estimatedCost: number;
+  approver: string | null; decisionNote: string | null; createdAt: string; fulfilledAt: string | null; lines: SupplyLine[]; canCancel: boolean; canDecide: boolean; canFulfil: boolean; version: number };
+export type PagedSupplies = { data: SupplyRequest[]; page: number; pageSize: number; total: number };
+export type SupplySettings = { approvalAbove: number | null; defaultLocationId: string | null };
+export type SupplySummary = { pending: number; open: number; partlyFulfilled: number; fulfilled30: number; issued30Cost: number; topItems: CountItem[] };
+
+// ---- report exports and schedules (R3-8, docs/63)
+export type ReportKind = { key: string; label: string; permission: string; description: string; defaultDays: number };
+export type ReportSchedule = { id: string; name: string; report: string; reportLabel: string; format: "csv" | "xlsx"; frequency: "daily" | "weekly" | "monthly"; weekday: number; monthDay: number; hour: number; days: number;
+  recipients: { id: string; name: string; email: string; canSee: boolean }[]; active: boolean; nextRunAt: string; lastRunAt: string | null; lastResult: string | null; owner: string | null; mine: boolean; version: number };
+
+// ---- directory (R3-9, docs/64)
+export type GroupMapping = { id: string; group: string; roleId: string; roleKey: string; roleName: string; people: number; createdAt: string };
+export type DirectoryOverview = { ssoGroupsClaim: boolean; mappings: number; scimGroups: number; scimUsers: number; lastScimAt: string | null; lastSyncAt: string | null };
+export type DirectorySyncResult = { dryRun: boolean; rows: number; updated: number; suspended: number; unchanged: number; notFound: number; failed: number;
+  details: { line: number; email: string; action: "updated" | "unchanged" | "not_found" | "error" | "suspended"; detail: string | null }[] };
+
+// ---- notification channels (R3-10, docs/65)
+export type ChannelSetting = { kind: "whatsapp" | "slack" | "teams"; enabled: boolean; settings: Record<string, string>; secretsSet: string[]; people: number; failed7: number; updatedAt: string | null };
+export type MyChannel = { kind: string; hint: string; verified: boolean; enabled: boolean; replaceEmail: boolean; lastError: string | null; codePending: boolean };
+export type MyChannels = { available: string[]; mine: MyChannel[] };
+export type ChannelDelivery = { id: string; channel: string; purpose: string; notificationKind: string | null; person: string | null; attempts: number; createdAt: string; deliveredAt: string | null; failedAt: string | null; lastError: string | null; fellBack: boolean };
+
 // ---- module analytics (docs/52): GET /api/<module>/summary
-export type WorkOrderSummary = { open: number; overdue: number; dueThisWeek: number; done30: number; onTime30: number; late30: number; avgCompletionHours: number | null; inHouseOpen: number; vendorOpen: number;
-  byStatus: CountItem[]; weekly: { week: string; created: number; done: number }[]; byVendor: CountItem[] };
+export type WorkOrderSummary = { days: number; open: number; overdue: number; dueThisWeek: number; done: number; onTime: number; late: number; avgCompletionHours: number | null; inHouseOpen: number; vendorOpen: number;
+  byStatus: CountItem[]; weekly: { week: string; created: number; done: number }[]; byVendor: CountItem[]; byCategory: { key: string; label: string; done: number; avgHours: number | null }[] };
 export type AssetSummary = { active: number; retired: number; warrantyExpired: number; warranty30: number; warranty90: number; unplaced: number; value: number | null; pmDue30: number;
   byStatus: CountItem[]; byType: CountItem[]; bySite: CountItem[]; mostTickets: { id: string; tag: string; name: string; tickets: number }[] };
 export type VendorRank = { id: string; name: string; workOrders: number; done: number; open: number; onTime: number; late: number; spend: number | null; rating: number | null; ratings: number };
-export type VendorSummary = { active: number; blocked: number; contractsActive: number; contractsExpiring60: number; openWorkOrders: number; overdueWorkOrders: number; spend12Months: number | null; top: VendorRank[] };
+export type VendorSummary = { days: number; active: number; blocked: number; contractsActive: number; contractsExpiring60: number; openWorkOrders: number; overdueWorkOrders: number; spend: number | null; top: VendorRank[] };
 export type ComplianceRowT = { key: string; label: string; planned: number; onTime: number; late: number; open: number; overdue: number; missed: number; cancelled: number; percent: number | null };
-export type MaintenanceSummary = { active: number; paused: number; due7: number; due30: number; overdueVisits: number; last90: ComplianceRowT; monthly: ComplianceRowT[]; upcoming: { id: string; name: string; nextDueOn: string }[] };
+export type MaintenanceSummary = { days: number; active: number; paused: number; due7: number; due30: number; overdueVisits: number; period: ComplianceRowT; monthly: ComplianceRowT[]; upcoming: { id: string; name: string; nextDueOn: string }[] };
 export type KbSummary = { published: number; drafts: number; archived: number; reviewDue: number; views: number; deflections: number; helpful: number; notHelpful: number;
   top: { id: string; title: string; views: number; deflections: number; helpfulPercent: number | null }[]; byCategory: CountItem[] };

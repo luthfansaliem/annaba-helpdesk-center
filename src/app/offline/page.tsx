@@ -15,6 +15,9 @@ export default function OfflinePage() {
         <p style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 18 }}>
           Annaba Digital needs a connection to show your account data. For your security, user and access data is never stored for offline use.
         </p>
+        <p style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 18 }}>
+          Technicians: open <b>Field mode</b> while you are online and keep it open — it keeps your own work orders and saves your changes until the connection is back.
+        </p>
         <a className="btn primary" href="/dashboard">Try again</a>
       </div>
     </main>

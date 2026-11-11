@@ -93,6 +93,31 @@ public interface IAppDb
     DbSet<WebhookEndpoint> WebhookEndpoints { get; }
     DbSet<WebhookDelivery> WebhookDeliveries { get; }
     DbSet<VendorUser> VendorUsers { get; }
+    DbSet<BookableResource> BookableResources { get; }
+    DbSet<Booking> Bookings { get; }
+    DbSet<BookingFeed> BookingFeeds { get; }
+    DbSet<VehicleTrip> VehicleTrips { get; }
+    DbSet<ResourceDocument> ResourceDocuments { get; }
+    DbSet<DriverLicence> DriverLicences { get; }
+    DbSet<Visit> Visits { get; }
+    DbSet<VisitorBlock> VisitorBlocks { get; }
+    DbSet<VisitorSettings> VisitorSettings { get; }
+    DbSet<MailItem> MailItems { get; }
+    DbSet<InventoryItem> InventoryItems { get; }
+    DbSet<StockBalance> StockBalances { get; }
+    DbSet<StockMovement> StockMovements { get; }
+    DbSet<StockTake> StockTakes { get; }
+    DbSet<StockTakeLine> StockTakeLines { get; }
+    DbSet<SupplyRequest> SupplyRequests { get; }
+    DbSet<SupplyRequestLine> SupplyRequestLines { get; }
+    DbSet<SupplySettings> SupplySettings { get; }
+    DbSet<ReportSchedule> ReportSchedules { get; }
+    DbSet<DirectoryGroupMapping> DirectoryGroupMappings { get; }
+    DbSet<ScimGroup> ScimGroups { get; }
+    DbSet<ChannelSetting> ChannelSettings { get; }
+    DbSet<UserChannel> UserChannels { get; }
+    DbSet<ChannelDelivery> ChannelDeliveries { get; }
+    DbSet<OfflineOp> OfflineOps { get; }
     /// <summary>Hands out the next ticket sequence for an organisation and year in one atomic upsert (no two tickets can share a number).</summary>
     Task<int> NextTicketSequenceAsync(Guid tenantId, int year, CancellationToken ct = default);
     /// <summary>Hands out the next automatic asset tag number for an organisation in one atomic upsert.</summary>
@@ -169,7 +194,11 @@ public sealed record EmailMessage(string To, string Subject, string Text, string
     public Func<string, EmailMessage?>? Localize { get; init; }
     /// <summary>Language to use when the recipient has no profile yet (an invitation: the inviter's language).</summary>
     public string? Lang { get; init; }
+    /// <summary>One file sent with the mail (a scheduled report, RPT-007). Kept in the outbox only until the mail is sent or given up.</summary>
+    public EmailAttachment? Attachment { get; init; }
 }
+
+public sealed record EmailAttachment(string FileName, string ContentType, byte[] Content);
 
 /// <summary>Delivers one email through the configured provider (console in dev, Resend in production).</summary>
 public interface IEmailSender { Task SendAsync(EmailMessage message, CancellationToken ct = default); }
@@ -208,7 +237,8 @@ public interface IEmailInfo
 public interface IEmailCredentials { Task<string?> GetResendApiKeyAsync(CancellationToken ct = default); }
 
 /// <summary>Who an OpenID Connect provider says signed in (already validated: signature, issuer, audience, expiry, nonce).</summary>
-public sealed record OidcIdentity(string Issuer, string Subject, string? Email, bool EmailVerified, string? Name);
+/// <param name="Groups">The token's groups claim (R3-9), or null when the token carries none: then roles are left as they are.</param>
+public sealed record OidcIdentity(string Issuer, string Subject, string? Email, bool EmailVerified, string? Name, IReadOnlyList<string>? Groups = null);
 public sealed class OidcException(string message, Exception? inner = null) : Exception(message, inner);
 
 /// <summary>Single sign-on with any OpenID Connect provider (authorization-code flow with PKCE). Disabled unless configured.</summary>
@@ -234,4 +264,19 @@ public interface ITenantContext
     void Use(Guid tenantId, bool isPlatform, bool support = false);
     /// <summary>Temporarily acts in another tenant (e.g. while the platform creates a tenant's first administrator); the previous scope returns on dispose.</summary>
     IDisposable Switch(Guid tenantId, bool isPlatform = false);
+}
+
+/// <summary>NTF-003. One message for one person on one outside channel. <see cref="Settings"/> holds the organisation's settings and decrypted credentials.</summary>
+public sealed record ChannelSend(string Kind, string Address, string Purpose, string Title, string? Body, string? Url, IReadOnlyDictionary<string, string> Settings, string Language);
+
+/// <summary>A channel could not take the message. <paramref name="permanent"/>: retrying will not help (bad credentials, unknown recipient).</summary>
+public sealed class ChannelSendException(string message, bool permanent) : Exception(message) { public bool Permanent { get; } = permanent; }
+
+/// <summary>NTF-003 port: WhatsApp, Slack and Teams adapters (Infrastructure); tests replace them.</summary>
+public interface IChannelSender
+{
+    string Kind { get; }
+    Task SendAsync(ChannelSend message, CancellationToken ct = default);
+    /// <summary>Finds the person's address on the channel from their e-mail (Slack); null when unknown or not supported.</summary>
+    Task<string?> ResolveAsync(ChannelSend settings, string email, CancellationToken ct = default);
 }

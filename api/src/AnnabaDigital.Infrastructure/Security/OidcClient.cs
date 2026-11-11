@@ -16,6 +16,8 @@ public sealed class SsoOptions
     public string Scopes { get; set; } = "openid email profile";
     /// <summary>Some providers (e.g. Microsoft Entra) don't send email_verified; set false only for a provider that already restricts who can sign in.</summary>
     public bool RequireVerifiedEmail { get; set; } = true;
+    /// <summary>The claim that lists the person's groups (R3-9). Mapped groups give roles at sign-in; a token without the claim leaves roles as they are.</summary>
+    public string GroupsClaim { get; set; } = "groups";
 }
 
 /// <summary>
@@ -109,6 +111,15 @@ public sealed class OidcClient(HttpClient http, IOptions<SsoOptions> options, IC
         if (Str("nonce") != nonce) throw new OidcException("The id_token nonce does not match.");
         var sub = Str("sub"); if (string.IsNullOrEmpty(sub)) throw new OidcException("The id_token has no subject.");
         var verified = c.TryGetValue("email_verified", out var ev) && (ev is true || string.Equals(ev?.ToString(), "true", StringComparison.OrdinalIgnoreCase));
-        return new OidcIdentity(d.Issuer, sub, Str("email"), verified, Str("name"));
+        List<string>? groups = null;
+        if (!string.IsNullOrWhiteSpace(O.GroupsClaim) && c.TryGetValue(O.GroupsClaim, out var gv) && gv is not null)
+            groups = gv switch
+            {
+                string one => [one],
+                IEnumerable<object> many => [.. many.Select(x => x?.ToString() ?? "").Where(x => x.Length > 0)],
+                System.Text.Json.JsonElement { ValueKind: System.Text.Json.JsonValueKind.Array } arr => [.. arr.EnumerateArray().Select(x => x.ToString()).Where(x => x.Length > 0)],
+                _ => [gv.ToString() ?? ""],
+            };
+        return new OidcIdentity(d.Issuer, sub, Str("email"), verified, Str("name"), groups);
     }
 }

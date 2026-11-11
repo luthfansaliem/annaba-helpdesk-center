@@ -47,6 +47,10 @@ public class UserProfile
     public Guid? AvatarId { get; set; }
     /// <summary>APR-002. Who this person reports to; an approval step can ask for "the requester's manager".</summary>
     public Guid? ManagerId { get; set; }
+    /// <summary>Kept by the directory (CSV sync or SCIM, R3-9): the HR employee number, the person's home site and the identity provider's id for them.</summary>
+    public string? EmployeeId { get; set; }
+    public Guid? SiteId { get; set; }
+    public string? ExternalId { get; set; }
 }
 
 public class Avatar

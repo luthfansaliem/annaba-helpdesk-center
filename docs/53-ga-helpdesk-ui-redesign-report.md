@@ -99,9 +99,7 @@ Status: **implemented and verified**. The review (`52-ga-helpdesk-ui-review.md`)
 
 ## Known gaps
 - **Charts need history.** On a new organisation the trends are flat until work accumulates.
-- **No date ranges on module summaries.** They use fixed windows (30/90 days, 12 weeks, 6 months); a period picker can follow if the managers want one.
-- **CSAT and work-order time trends.** Satisfaction over time and time to complete per category are not charted yet.
-- **Dark mode was not reviewed screen by screen.** The new styles use the theme variables throughout.
+- ~~No date ranges on module summaries~~, ~~CSAT and work-order time trends~~, ~~dark mode not reviewed screen by screen~~: closed in `54-ga-helpdesk-insights-periods-report.md`.
 - **Production.** Deployed on 2026-11-11 (commit `6f3cd84`). The demo data is for development and staging only.
 
 ## Found and fixed while testing

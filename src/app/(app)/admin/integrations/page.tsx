@@ -18,7 +18,7 @@ import { useQuery } from "@/lib/hooks";
 import { useRun } from "@/lib/use-run";
 import { t } from "@/i18n";
 
-const SCOPES: [string, () => string][] = [["tickets.read", () => t("Read tickets")], ["tickets.write", () => t("Create tickets and comment")], ["catalog.read", () => t("Read the service catalog")]];
+const SCOPES: [string, () => string][] = [["tickets.read", () => t("Read tickets")], ["tickets.write", () => t("Create tickets and comment")], ["catalog.read", () => t("Read the service catalog")], ["directory.write", () => t("Directory: SCIM and HR sync")]];
 const EVENTS: [string, () => string][] = [["ticket.created", () => t("A ticket is created")], ["ticket.status_changed", () => t("A ticket changes status")], ["ticket.assigned", () => t("A ticket is assigned")], ["ticket.commented", () => t("A public comment is added")], ["workorder.completed", () => t("A work order is completed")]];
 
 function Secret({ label, value }: { label: string; value: string }) {

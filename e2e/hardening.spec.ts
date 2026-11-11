@@ -71,7 +71,7 @@ test("role: duplicate then archive moves it out of the active list", async ({ pa
   await page.goto("/roles");
   await page.getByRole("button", { name: /create role/i }).click();
   const dlg = page.getByRole("dialog", { name: "Create role" });
-  await dlg.getByLabel("Name").fill(name); await dlg.getByLabel("Description").fill("to duplicate");
+  await dlg.locator("#r-name").fill(name); await dlg.getByLabel("Description").fill("to duplicate");   // by id: a permission description mentions "names"
   await dlg.locator("input[type=checkbox]").first().check();
   await dlg.getByRole("button", { name: /save role/i }).click();
   await reauthIfAsked(page);

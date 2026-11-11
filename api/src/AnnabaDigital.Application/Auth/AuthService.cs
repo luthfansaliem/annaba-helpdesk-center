@@ -28,7 +28,7 @@ public static class LoginStatus
 
 public sealed class AuthService(
     IAppDb db, IPasswordHasher hasher, ITokenService tokens, IRateLimiter limiter, IClock clock,
-    SessionService sessions, AuthorizationService authz, AuditWriter audit, SettingsProvider settings, MfaService mfaService, IEmailQueue email, IAppLinks links, TenantDirectory tenants)
+    SessionService sessions, AuthorizationService authz, AuditWriter audit, SettingsProvider settings, MfaService mfaService, IEmailQueue email, IAppLinks links, TenantDirectory tenants, AnnabaDigital.Application.Users.DirectoryRoleSync directory)
 {
     /// <summary>A sign-in from a device and browser this person has not used within this many days is "new" and, unless they opted out, they are e-mailed.</summary>
     public const int NewDeviceWindowDays = 90;
@@ -216,6 +216,7 @@ public sealed class AuthService(
             audit.Record("auth.sso.link", "user", user.Id.ToString(), Outcome.Success, client, user.Id, user.Email, new Dictionary<string, string> { ["issuer"] = id.Issuer });
         }
         link.LastLoginAt = now;
+        if (id.Groups is { } groups) await directory.SyncAsync(user.Id, groups, "sso", client, ct);   // R3-9: mapped groups decide the directory-managed roles
         return await CompleteLoginAsync(user, false, existingRawToken, client, await settings.GetForAsync(user.TenantId, ct), now, "sso", ct);
     }
 

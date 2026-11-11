@@ -279,6 +279,40 @@ async function modules(admin, requester, ctx) {
     if (!rows(list.items ?? list).some((b) => b.scopeId === siteId)) must(await admin.post("/api/costs/budgets", { scope: "site", scopeId: siteId, year, amount: 25_000_000, note: "Facilities upkeep" }), "creating a budget");
     console.log("  budget: site budget for this year");
   });
+
+  // bookable resources (R3-1) and a few bookings over the coming days
+  await soft("bookings", async () => {
+    const have = must(await admin.get("/api/resources?archived=true"), "reading resources");
+    const spec = [
+      { kind: "room", name: "Garuda meeting room", code: "DEMO-R-GRD", capacity: 12, features: ["projector", "video_call", "whiteboard"], openFrom: "07:00", openUntil: "20:00", openDays: 31, bufferMinutes: 10, maxMinutes: 480 },
+      { kind: "room", name: "Merak meeting room", code: "DEMO-R-MRK", capacity: 6, features: ["screen", "video_call"], openFrom: "07:00", openUntil: "20:00", openDays: 31, bufferMinutes: 0, maxMinutes: 240 },
+      { kind: "room", name: "Focus room 3A", code: "DEMO-R-3A", capacity: 2, features: ["phone"], openFrom: "07:00", openUntil: "20:00", openDays: 31, bufferMinutes: 0, maxMinutes: 120 },
+      { kind: "vehicle", name: "Toyota Innova", code: "B 1234 XYZ", capacity: 6, features: [], openFrom: null, openUntil: null, openDays: 127, bufferMinutes: 30, maxMinutes: null },
+      { kind: "parking", name: "Visitor parking P1", code: "DEMO-P1", capacity: null, features: ["ev_charger"], openFrom: "06:00", openUntil: "22:00", openDays: 127, bufferMinutes: 0, maxMinutes: null },
+      { kind: "equipment", name: "Portable projector", code: "DEMO-EQ-PRJ", capacity: null, features: [], openFrom: "07:00", openUntil: "19:00", openDays: 31, bufferMinutes: 15, maxMinutes: 600 },
+    ];
+    const res = {};
+    for (const s of spec) {
+      const found = have.find((r) => r.code === s.code.toUpperCase());
+      res[s.code] = found ?? must(await admin.post("/api/resources", { ...s, locationId: placeId ?? null, needsApproval: false, allowedRoleIds: [] }), `creating ${s.name}`);
+    }
+    // the next weekdays at local times; a slot that is taken (a second run) is simply skipped
+    const at = (offsetDays, hh, mm = 0) => { const d = new Date(); d.setDate(d.getDate() + offsetDays); d.setHours(hh, mm, 0, 0); return d; };
+    const weekday = (n) => { let d = 0, seen = 0; while (seen <= n) { d++; const x = at(d, 9); if (x.getDay() !== 0 && x.getDay() !== 6) seen++; } return d; };
+    const plan = [
+      [requester, "DEMO-R-GRD", weekday(0), 9, 0, 10, 30, "[Demo] Weekly GA coordination", 8], [admin, "DEMO-R-GRD", weekday(0), 13, 0, 15, 0, "[Demo] Vendor review: CV Bersih Selalu", 6],
+      [requester, "DEMO-R-MRK", weekday(0), 10, 0, 11, 0, "[Demo] Interview", 3], [admin, "DEMO-R-3A", weekday(1), 8, 30, 9, 30, "[Demo] 1:1", 2],
+      [requester, "DEMO-R-GRD", weekday(1), 14, 0, 16, 0, "[Demo] Budget planning", 10], [admin, "DEMO-EQ-PRJ", weekday(1), 9, 0, 12, 0, "[Demo] Townhall rehearsal", null],
+      [requester, "B 1234 XYZ", weekday(2), 8, 0, 17, 0, "[Demo] Site visit Bandung", 4], [admin, "DEMO-P1", weekday(2), 9, 0, 12, 0, "[Demo] Auditor visit", null],
+    ];
+    let made = 0;
+    for (const [who, code, d, h1, m1, h2, m2, title, people] of plan) {
+      const r = res[code]; if (!r) continue;
+      const out = await who.post("/api/bookings", { resourceId: r.id, startsAt: at(d, h1, m1).toISOString(), endsAt: at(d, h2, m2).toISOString(), title, attendees: people });
+      if (out.ok) made++;
+    }
+    console.log(`  bookings: ${Object.keys(res).length} resources, ${made} new bookings`);
+  });
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1); });

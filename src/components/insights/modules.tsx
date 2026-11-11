@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   AlarmClock, BookOpen, Boxes, CalendarCheck, CalendarClock, CheckCircle2, CircleDollarSign, Eye, FileClock, FileText, Gauge, Hammer, LifeBuoy, MapPinOff,
@@ -8,6 +9,7 @@ import {
 import { KpiCard, KpiGrid } from "./kpi";
 import { Bars, ChartCard, ChartEmpty, ColumnChart, Donut, PALETTE } from "./charts";
 import { ModuleEmpty } from "./module-empty";
+import { LONG_PERIODS, PeriodSelect, periodLabel } from "@/components/reports/parts";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/states";
 import { woStatusLabel } from "@/components/workorders/wo-bits";
@@ -26,7 +28,17 @@ function Loading() {
 const shortDay = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(formatLocale(), { day: "2-digit", month: "short" });
 const shortMonth = (ym: string) => new Date(`${ym}-01T00:00:00`).toLocaleDateString(formatLocale(), { month: "short" });
 const pct = (a: number, b: number) => (b === 0 ? "—" : `${Math.round((100 * a) / b)}%`);
-const hours = (h: number | null) => (h === null ? "—" : h < 48 ? t("{n} h", { n: Math.round(h) }) : t("{n} days", { n: Math.round(h / 24) }));
+const hours = (h: number | null) => (h === null ? "—" : h < 1 ? t("< 1 h") : h < 48 ? t("{n} h", { n: Math.round(h) }) : t("{n} days", { n: Math.round(h / 24) }));
+
+/** "At a glance" with the period the figures cover (finished work, compliance, spend); counts of what is open now ignore it. */
+function GlanceBar({ id, days, onChange, note }: { id: string; days: number; onChange: (d: number) => void; note: string }) {
+  return (
+    <div className="glance-bar">
+      <div><h2>{t("At a glance")}</h2><small className="muted">{note}</small></div>
+      <PeriodSelect id={id} days={days} onChange={onChange} options={LONG_PERIODS} />
+    </div>
+  );
+}
 
 /** The organisation's currency for money tiles (falls back to Rupiah when the setting is not readable). */
 function useCurrency() {
@@ -37,28 +49,39 @@ function useCurrency() {
 // ================================================================ work orders
 export function WorkOrderInsights() {
   const { user } = useAuth();
-  const q = useQuery(() => get<WorkOrderSummary>("/api/work-orders/summary"), []);
+  const [days, setDays] = useState(30);
+  const q = useQuery(() => get<WorkOrderSummary>("/api/work-orders/summary", { days }), [days]);
   const s = q.data;
-  if (!s) return <Loading />;
+  const bar = <GlanceBar id="wo-days" days={days} onChange={setDays} note={t("Finished work and times cover the period; open work is as of now.")} />;
+  if (!s || s.days !== days) return <>{bar}<Loading /></>;
   const statusColors: Record<string, string> = { open: "#94a3b8", in_progress: "#14b8a6", on_hold: "#f4694f" };
-  const finished = s.onTime30 + s.late30;
+  const finished = s.onTime + s.late;
+  const period = periodLabel(days).toLowerCase();
   return (
     <>
+      {bar}
       <KpiGrid label={t("Work orders at a glance")}>
         <KpiCard icon={<Wrench size={18} />} label={t("Not finished")} value={String(s.open)} note={user?.vendorName ? t("for your company") : t("{a} in-house · {b} by vendors", { a: s.inHouseOpen, b: s.vendorOpen })} />
         <KpiCard icon={<TriangleAlert size={18} />} label={t("Overdue")} value={String(s.overdue)} note={t("past their due time")} tone={s.overdue > 0 ? "bad" : "good"} />
         <KpiCard icon={<AlarmClock size={18} />} label={t("Due this week")} value={String(s.dueThisWeek)} note={t("in the next 7 days")} tone={s.dueThisWeek > 0 ? "warn" : "default"} />
-        <KpiCard icon={<CheckCircle2 size={18} />} label={t("Done in 30 days")} value={String(s.done30)} note={finished ? t("{p} on time", { p: pct(s.onTime30, finished) }) : t("none had a due time")} tone="good" />
-        <KpiCard icon={<Timer size={18} />} label={t("Average time to complete")} value={hours(s.avgCompletionHours)} note={t("from creation, last 90 days")} />
+        <KpiCard icon={<CheckCircle2 size={18} />} label={t("Done")} value={String(s.done)} note={finished ? t("{p} on time · {period}", { p: pct(s.onTime, finished), period }) : period} tone="good" />
+        <KpiCard icon={<Timer size={18} />} label={t("Average time to complete")} value={hours(s.avgCompletionHours)} note={t("from creation · {period}", { period })} />
       </KpiGrid>
       {(s.open > 0 || s.weekly.some((w) => w.created + w.done > 0)) && (
         <div className="chart-grid wide-first">
-          <ChartCard title={t("Created and done per week")} sub={t("Last 12 weeks")}>
+          <ChartCard title={t("Created and done per week")} sub={t("Last {n} weeks", { n: s.weekly.length })}>
             <ColumnChart labels={s.weekly.map((w) => shortDay(w.week))} series={[{ name: t("Created"), color: PALETTE[0], data: s.weekly.map((w) => w.created) }, { name: t("Done"), color: PALETTE[5], data: s.weekly.map((w) => w.done) }]} label={t("Work orders created and done per week")} />
           </ChartCard>
           <ChartCard title={t("Open work by status")} sub={user?.vendorName ? undefined : t("And the vendors with the most open work")}>
             <Donut segments={s.byStatus.map((x) => ({ label: woStatusLabel(x.key as WorkOrderStatus), value: x.count, color: statusColors[x.key] ?? "#94a3b8" }))} center={t("Open")} label={t("Open work orders by status")} />
             {!user?.vendorName && s.byVendor.length > 0 && <div style={{ marginTop: 14 }}><Bars items={s.byVendor.map((v) => ({ label: v.label, value: v.count }))} color={PALETTE[3]} /></div>}
+          </ChartCard>
+        </div>
+      )}
+      {s.byCategory.length > 0 && (
+        <div className="chart-grid">
+          <ChartCard title={t("Time to complete by category")} sub={t("Average from creation to done, slowest first · {period}", { period })}>
+            <Bars items={s.byCategory.map((c) => ({ label: t("{label} ({n} done)", { label: c.label, n: c.done }), value: c.avgHours ?? 0 }))} format={(h) => hours(h)} color={PALETTE[2]} empty={t("Everything was finished within the hour.")} />
           </ChartCard>
         </div>
       )}
@@ -110,10 +133,13 @@ export function AssetInsights({ onAdd }: { onAdd?: () => void }) {
 // ================================================================ vendors
 export function VendorInsights({ onAdd }: { onAdd?: () => void }) {
   const { can } = useAuth();
-  const q = useQuery(() => get<VendorSummary>("/api/vendors/summary"), []);
+  const [days, setDays] = useState(365);
+  const q = useQuery(() => get<VendorSummary>("/api/vendors/summary", { days }), [days]);
   const currency = useCurrency();
   const s = q.data;
-  if (!s) return <Loading />;
+  const bar = <GlanceBar id="vd-days" days={days} onChange={setDays} note={t("Finished work, ratings and spend cover the period; open work is as of now.")} />;
+  if (!s || s.days !== days) return <>{s && s.active + s.blocked > 0 && bar}<Loading /></>;
+  const period = periodLabel(days).toLowerCase();
   if (s.active + s.blocked === 0) {
     return (
       <div className="card" style={{ marginBottom: 12 }}>
@@ -125,26 +151,27 @@ export function VendorInsights({ onAdd }: { onAdd?: () => void }) {
   }
   return (
     <>
+      {bar}
       <KpiGrid label={t("Vendors at a glance")}>
         <KpiCard icon={<Truck size={18} />} label={t("Active vendors")} value={String(s.active)} note={s.blocked ? t("{n} blocked", { n: s.blocked }) : t("none blocked")} />
         <KpiCard icon={<FileText size={18} />} label={t("Contracts in force")} value={String(s.contractsActive)} note={t("{n} end within 60 days", { n: s.contractsExpiring60 })} tone={s.contractsExpiring60 > 0 ? "warn" : "default"} />
         <KpiCard icon={<Wrench size={18} />} label={t("Open vendor work")} value={String(s.openWorkOrders)} note={t("work orders not finished")} href="/work-orders" />
         <KpiCard icon={<TriangleAlert size={18} />} label={t("Late vendor work")} value={String(s.overdueWorkOrders)} note={t("past their due time")} tone={s.overdueWorkOrders > 0 ? "bad" : "good"} />
-        {s.spend12Months !== null && <KpiCard icon={<CircleDollarSign size={18} />} label={t("Spend, 12 months")} value={fmtMoneyShort(s.spend12Months, currency)} note={t("costs on vendor work orders")} />}
+        {s.spend !== null && <KpiCard icon={<CircleDollarSign size={18} />} label={t("Spend")} value={fmtMoneyShort(s.spend, currency)} note={t("vendor work-order costs · {period}", { period })} />}
       </KpiGrid>
       <div className="chart-grid">
-        <ChartCard title={t("Vendor performance")} sub={t("The vendors with the most work: on-time record and rating")}>
+        <ChartCard title={t("Vendor performance")} sub={t("The vendors with the most work: on-time record and rating · {period}", { period })}>
           {s.top.length === 0 ? <ChartEmpty text={t("No vendor has had a work order yet.")} /> : (
             <div className="tbl-wrap">
               <table className="tbl" aria-label={t("Vendor performance")}>
-                <thead><tr><th>{t("Vendor")}</th><th>{t("Work orders")}</th><th>{t("Open")}</th><th>{t("On time")}</th><th>{t("Rating")}</th>{s.spend12Months !== null && <th>{t("Spend, 12 months")}</th>}</tr></thead>
+                <thead><tr><th>{t("Vendor")}</th><th>{t("Work orders")}</th><th>{t("Open")}</th><th>{t("On time")}</th><th>{t("Rating")}</th>{s.spend !== null && <th>{t("Spend")}</th>}</tr></thead>
                 <tbody>{s.top.map((v) => (
                   <tr key={v.id}>
                     <td><Link href={`/vendors/${v.id}`}><b>{v.name}</b></Link></td>
                     <td>{v.workOrders}</td><td>{v.open}</td>
                     <td>{v.onTime + v.late === 0 ? "—" : <span className="row" style={{ gap: 8, flexWrap: "nowrap" }}><span className="bar" style={{ width: 70, flex: "none" }}><i style={{ width: `${(100 * v.onTime) / (v.onTime + v.late)}%`, background: PALETTE[5] }} /></span>{pct(v.onTime, v.onTime + v.late)}</span>}</td>
                     <td>{v.rating === null ? "—" : <span className="nowrap"><Star size={13} style={{ verticalAlign: -2, color: "#f59e0b" }} aria-hidden /> {v.rating.toFixed(1)} <small className="muted">({v.ratings})</small></span>}</td>
-                    {s.spend12Months !== null && <td className="nowrap">{fmtMoney(v.spend ?? 0, currency)}</td>}
+                    {s.spend !== null && <td className="nowrap">{fmtMoney(v.spend ?? 0, currency)}</td>}
                   </tr>
                 ))}</tbody>
               </table>
@@ -159,9 +186,12 @@ export function VendorInsights({ onAdd }: { onAdd?: () => void }) {
 // ================================================================ maintenance
 export function MaintenanceInsights({ onAdd }: { onAdd?: () => void }) {
   const { can } = useAuth();
-  const q = useQuery(() => get<MaintenanceSummary>("/api/maintenance/summary"), []);
+  const [days, setDays] = useState(90);
+  const q = useQuery(() => get<MaintenanceSummary>("/api/maintenance/summary", { days }), [days]);
   const s = q.data;
-  if (!s) return <Loading />;
+  const bar = <GlanceBar id="pm-days" days={days} onChange={setDays} note={t("Compliance covers the visits due in the period; plans and overdue visits are as of now.")} />;
+  if (!s || s.days !== days) return <>{s && s.active + s.paused > 0 && bar}<Loading /></>;
+  const period = periodLabel(days).toLowerCase();
   if (s.active + s.paused === 0) {
     return (
       <div className="card" style={{ marginBottom: 12 }}>
@@ -171,18 +201,19 @@ export function MaintenanceInsights({ onAdd }: { onAdd?: () => void }) {
       </div>
     );
   }
-  const L = s.last90;
+  const L = s.period;
   return (
     <>
+      {bar}
       <KpiGrid label={t("Maintenance at a glance")}>
         <KpiCard icon={<CalendarCheck size={18} />} label={t("Active plans")} value={String(s.active)} note={s.paused ? t("{n} paused", { n: s.paused }) : t("none paused")} />
         <KpiCard icon={<AlarmClock size={18} />} label={t("Due in 7 days")} value={String(s.due7)} note={t("{n} in 30 days", { n: s.due30 })} tone={s.due7 > 0 ? "warn" : "default"} />
         <KpiCard icon={<TriangleAlert size={18} />} label={t("Overdue visits")} value={String(s.overdueVisits)} note={t("work not finished after its date")} tone={s.overdueVisits > 0 ? "bad" : "good"} />
-        <KpiCard icon={<Gauge size={18} />} label={t("Compliance")} value={L.percent === null ? "—" : `${L.percent}%`} note={t("done on time, last 90 days")} tone={L.percent === null ? "default" : L.percent >= 90 ? "good" : L.percent >= 70 ? "warn" : "bad"} href="/maintenance/compliance" />
-        <KpiCard icon={<PauseCircle size={18} />} label={t("Missed")} value={String(L.missed)} note={t("visits skipped, last 90 days")} tone={L.missed > 0 ? "warn" : "default"} />
+        <KpiCard icon={<Gauge size={18} />} label={t("Compliance")} value={L.percent === null ? "—" : `${L.percent}%`} note={t("done on time · {period}", { period })} tone={L.percent === null ? "default" : L.percent >= 90 ? "good" : L.percent >= 70 ? "warn" : "bad"} href="/maintenance/compliance" />
+        <KpiCard icon={<PauseCircle size={18} />} label={t("Missed")} value={String(L.missed)} note={t("visits skipped · {period}", { period })} tone={L.missed > 0 ? "warn" : "default"} />
       </KpiGrid>
       <div className="chart-grid wide-first">
-        <ChartCard title={t("Visits per month")} sub={t("On time, late, still open and missed (last 6 months)")} action={<Link className="link-btn" href="/maintenance/compliance">{t("Compliance report")}</Link>}>
+        <ChartCard title={t("Visits per month")} sub={t("On time, late, still open and missed (last {n} months)", { n: s.monthly.length })} action={<Link className="link-btn" href="/maintenance/compliance">{t("Compliance report")}</Link>}>
           <ColumnChart stacked labels={s.monthly.map((m) => shortMonth(m.key))} label={t("Maintenance visits per month")}
             series={[{ name: t("On time"), color: PALETTE[5], data: s.monthly.map((m) => m.onTime) }, { name: t("Late"), color: PALETTE[2], data: s.monthly.map((m) => m.late) }, { name: t("Open"), color: PALETTE[0], data: s.monthly.map((m) => m.open + m.overdue) }, { name: t("Missed"), color: PALETTE[4], data: s.monthly.map((m) => m.missed) }]} />
         </ChartCard>

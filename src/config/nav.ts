@@ -1,7 +1,4 @@
-import {
-  Home, Users, UserRound, UsersRound, MailPlus, ShieldCheck, KeyRound, Grid3x3, MonitorSmartphone, ScrollText, ShieldAlert,
-  Settings, SlidersHorizontal, Fingerprint, BarChart3, Mail, KeySquare, ClipboardCheck, Building2, UserX, MapPin, CalendarClock, Headset, ListChecks, Timer, GitFork, Gauge, Stamp, BellRing, CheckCheck, Inbox, FilePlus2, ListTodo, LifeBuoy, Ticket, Rocket, Archive, CircleHelp, MailOpen, Boxes, Tags, Wrench, ClipboardList, Truck, CalendarCheck, Smile, BookOpen, Wallet, PiggyBank, Landmark, Plug, type LucideIcon,
-} from "lucide-react";
+import { Home, Users, UserRound, UsersRound, MailPlus, ShieldCheck, KeyRound, Grid3x3, MonitorSmartphone, ScrollText, ShieldAlert, Settings, SlidersHorizontal, Fingerprint, BarChart3, Mail, KeySquare, ClipboardCheck, Building2, UserX, MapPin, CalendarClock, Headset, ListChecks, Timer, GitFork, Gauge, Stamp, BellRing, CheckCheck, Inbox, FilePlus2, ListTodo, LifeBuoy, Ticket, Rocket, Archive, CircleHelp, MailOpen, Boxes, Tags, Wrench, ClipboardList, Truck, CalendarCheck, Smile, BookOpen, Wallet, PiggyBank, Landmark, Plug, type LucideIcon, CalendarRange, DoorOpen, UserPlus, UserCheck, Package, ShoppingBasket, FileSpreadsheet, Network, MessagesSquare, CloudOff } from "lucide-react";
 
 export type NavLeaf = { label: string; href: string; icon: LucideIcon; perm?: string };
 export type NavGroup = { title: string; icon: LucideIcon; children: (NavLeaf | NavGroup)[] };
@@ -15,23 +12,32 @@ export const nav: NavNode[] = [
   { label: "New request", href: "/requests/new", icon: FilePlus2 },
   { label: "My requests", href: "/requests", icon: ListTodo },
   { label: "Knowledge base", href: "/kb", icon: BookOpen },
+  { label: "Bookings", href: "/bookings", icon: CalendarRange },
+  { label: "My visitors", href: "/visitors", icon: UserPlus },
+  { label: "Mail & parcels", href: "/mail", icon: Package },
+  { label: "Supplies", href: "/supplies", icon: ShoppingBasket },
   { label: "Approvals", href: "/approvals", icon: CheckCheck },
   { title: "Service desk", icon: LifeBuoy, children: [
     { label: "Ticket Queue", href: "/tickets", icon: Ticket, perm: "tickets.read_team" },
     { label: "Work Orders", href: "/work-orders", icon: Wrench, perm: "workorders.read" },
+    { label: "Field mode", href: "/work-orders/field", icon: CloudOff, perm: "workorders.complete" },
+    { label: "Reception", href: "/reception", icon: DoorOpen, perm: "visitors.read_all" },
   ] },
   { title: "Assets & vendors", icon: Boxes, children: [
     { label: "Assets", href: "/assets", icon: Boxes, perm: "assets.read" },
     { label: "Maintenance", href: "/maintenance", icon: CalendarCheck, perm: "pm.read" },
     { label: "Vendors", href: "/vendors", icon: Truck, perm: "vendors.read" },
+    { label: "Inventory", href: "/inventory", icon: Package, perm: "inventory.read" },
   ] },
   { title: "Insights", icon: BarChart3, children: [
     { label: "Operations", href: "/reports", icon: Gauge, perm: "tickets.read_team" },
     { label: "SLA Report", href: "/reports/sla", icon: Timer, perm: "tickets.read_team" },
     { label: "Satisfaction", href: "/reports/csat", icon: Smile, perm: "tickets.read_team" },
     { label: "Maintenance compliance", href: "/maintenance/compliance", icon: ClipboardCheck, perm: "pm.read" },
+    { label: "Utilisation", href: "/reports/utilisation", icon: Gauge, perm: "bookings.read_all" },
     { label: "Cost Report", href: "/costs", icon: Wallet, perm: "cost.read" },
     { label: "Budgets", href: "/costs/budgets", icon: PiggyBank, perm: "budgets.read" },
+    { label: "Report exports", href: "/reports/schedules", icon: FileSpreadsheet, perm: "tickets.read_team" },
   ] },
   { title: "Helpdesk Setup", icon: Headset, children: [
     { label: "Get started", href: "/setup/start", icon: Rocket, perm: "locations.manage" },
@@ -43,6 +49,8 @@ export const nav: NavNode[] = [
     { label: "Assignment Rules", href: "/setup/assignment-rules", icon: GitFork, perm: "rules.read" },
     { label: "Approval Policies", href: "/setup/approvals", icon: Stamp, perm: "approvals.read" },
     { label: "Asset Types", href: "/setup/asset-types", icon: Tags, perm: "assets.read" },
+    { label: "Bookable resources", href: "/setup/resources", icon: DoorOpen, perm: "resources.manage" },
+    { label: "Visitor rules", href: "/setup/visitors", icon: UserCheck, perm: "visitors.manage" },
     { label: "Checklists", href: "/setup/checklists", icon: ClipboardList, perm: "workorders.read" },
     { label: "Cost Centres", href: "/costs/centers", icon: Landmark, perm: "budgets.read" },
   ] },
@@ -71,6 +79,8 @@ export const nav: NavNode[] = [
     { label: "Email Wording", href: "/admin/email-wording", icon: MailOpen, perm: "settings.manage" },
     { label: "Email to Ticket", href: "/admin/inbound-email", icon: Inbox, perm: "settings.manage" },
     { label: "Integrations", href: "/admin/integrations", icon: Plug, perm: "integrations.manage" },
+    { label: "Directory", href: "/admin/directory", icon: Network, perm: "directory.manage" },
+    { label: "Notification channels", href: "/admin/channels", icon: MessagesSquare, perm: "integrations.manage" },
     { label: "Tenants", href: "/admin/tenants", icon: Building2, perm: "tenants.manage" },
   ] },
   { title: "Personal", icon: UserRound, children: [

@@ -165,6 +165,9 @@ public sealed class ApiFactory(string connectionString, TestClock clock) : WebAp
             s.RemoveAll<IEmailSender>(); s.AddSingleton<InMemoryEmailSender>(); s.AddSingleton<IEmailSender>(sp => sp.GetRequiredService<InMemoryEmailSender>());
             s.RemoveAll<IBreachedPasswordChecker>(); s.AddSingleton<IBreachedPasswordChecker, FakeBreachChecker>();
             s.RemoveAll<IAttachmentScanner>(); s.AddSingleton<IAttachmentScanner, MarkerScanner>();
+            // R3-10: WhatsApp, Slack and Teams are never called from tests; a recorder stands in (ChannelTests reads it)
+            s.RemoveAll<IChannelSender>(); s.AddSingleton<FakeChannels>();
+            foreach (var kind in AnnabaDigital.Domain.Entities.ChannelRules.Kinds) s.AddSingleton<IChannelSender>(sp => sp.GetRequiredService<FakeChannels>().Sender(kind));
         });
     }
 }
@@ -185,9 +188,10 @@ public sealed class TestBrowser(ApiFactory factory, string ip)
 
     public static TestBrowser Create(ApiFactory f) => new(f, NewIp());
 
-    public async Task<HttpResponseMessage> SendAsync(HttpMethod method, string url, object? body = null, bool csrf = true)
+    public async Task<HttpResponseMessage> SendAsync(HttpMethod method, string url, object? body = null, bool csrf = true, IDictionary<string, string>? headers = null)
     {
         var req = new HttpRequestMessage(method, url);
+        foreach (var (k, v) in headers ?? new Dictionary<string, string>()) req.Headers.Add(k, v);
         if (SendProxyKey) req.Headers.Add("X-Internal-Proxy-Key", ApiFactory.ProxyKey);
         req.Headers.Add("X-Forwarded-For", Ip);
         req.Headers.UserAgent.ParseAdd(UserAgent);

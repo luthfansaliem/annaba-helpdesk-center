@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Car } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Panel } from "@/components/ui/card";
 import { Field, SelectInput, TextInput } from "@/components/ui/field";
@@ -39,6 +39,7 @@ function Report() {
     { key: "s", header: t("Services"), className: "hide-sm", cell: (r) => money(r.service) },
     { key: "i", header: t("Vendor invoices"), className: "hide-sm", cell: (r) => money(r.invoice) },
     { key: "o", header: t("Other"), className: "hide-sm", cell: (r) => money(r.other) },
+    { key: "v", header: t("Vehicle trips"), className: "hide-sm", cell: (r) => money(r.vehicle) },
     { key: "t", header: t("Total"), cell: (r) => <b>{money(r.total)}</b> },
     { key: "w", header: t("Work orders"), cell: (r) => r.workOrders },
   ];
@@ -62,6 +63,7 @@ function Report() {
             <KpiCard icon={<Clock size={18} />} label={t("Labour")} value={fmtMoneyShort(r.total.labour + r.total.time, r.currency)} note={r.labourRatePerHour === null ? t("No labour rate set: logged time has no cost") : t("Logged time at {rate} per hour", { rate: money(r.labourRatePerHour) })} />
             <KpiCard icon={<Wrench size={18} />} label={t("Services")} value={fmtMoneyShort(r.total.service, r.currency)} note={money(r.total.service)} />
             <KpiCard icon={<Receipt size={18} />} label={t("Vendor invoices")} value={fmtMoneyShort(r.total.invoice, r.currency)} note={money(r.total.invoice)} />
+            {r.total.vehicle > 0 && <KpiCard icon={<Car size={18} />} label={t("Vehicle trips")} value={fmtMoneyShort(r.total.vehicle, r.currency)} note={t("fuel, tolls and parking")} />}
           </KpiGrid>
           {r.total.total > 0 && (
             <div className="chart-grid wide-first">
@@ -72,12 +74,12 @@ function Report() {
                       const v = (k: string, f: (x: CostRow) => number) => { const x = r.rows.find((y) => y.key === k); return x ? f(x) : 0; };
                       return <ColumnChart stacked format={(n) => fmtMoneyShort(n, r.currency)} label={t("Cost per month")}
                         labels={ms.map((k) => new Date(`${k}-01T00:00:00`).toLocaleDateString(formatLocale(), { month: "short", year: "2-digit" }))}
-                        series={[{ name: t("Parts"), color: PALETTE[0], data: ms.map((k) => v(k, (x) => x.part)) }, { name: t("Labour"), color: PALETTE[1], data: ms.map((k) => v(k, (x) => x.labour + x.time)) }, { name: t("Services"), color: PALETTE[2], data: ms.map((k) => v(k, (x) => x.service)) }, { name: t("Vendor invoices"), color: PALETTE[3], data: ms.map((k) => v(k, (x) => x.invoice)) }, { name: t("Other"), color: PALETTE[6], data: ms.map((k) => v(k, (x) => x.other)) }]} />;
+                        series={[{ name: t("Parts"), color: PALETTE[0], data: ms.map((k) => v(k, (x) => x.part)) }, { name: t("Labour"), color: PALETTE[1], data: ms.map((k) => v(k, (x) => x.labour + x.time)) }, { name: t("Services"), color: PALETTE[2], data: ms.map((k) => v(k, (x) => x.service)) }, { name: t("Vendor invoices"), color: PALETTE[3], data: ms.map((k) => v(k, (x) => x.invoice)) }, { name: t("Other"), color: PALETTE[6], data: ms.map((k) => v(k, (x) => x.other)) }, ...(r.total.vehicle > 0 ? [{ name: t("Vehicle trips"), color: PALETTE[4], data: ms.map((k) => v(k, (x) => x.vehicle)) }] : [])]} />;
                     })()
                   : <Bars items={[...r.rows].sort((x, y) => y.total - x.total).slice(0, 8).map((x) => ({ label: x.label, value: x.total }))} format={(n) => fmtMoneyShort(n, r.currency)} />}
               </ChartCard>
               <ChartCard title={t("Where the money went")} sub={t("Share of the total by kind of cost")}>
-                <Donut format={(n) => fmtMoneyShort(n, r.currency)} center={t("Total")} value={fmtMoneyShort(r.total.total, r.currency)} label={t("Cost by kind")} segments={[{ label: t("Parts"), value: r.total.part, color: PALETTE[0] }, { label: t("Labour"), value: r.total.labour + r.total.time, color: PALETTE[1] }, { label: t("Services"), value: r.total.service, color: PALETTE[2] }, { label: t("Vendor invoices"), value: r.total.invoice, color: PALETTE[3] }, { label: t("Other"), value: r.total.other, color: PALETTE[6] }]} />
+                <Donut format={(n) => fmtMoneyShort(n, r.currency)} center={t("Total")} value={fmtMoneyShort(r.total.total, r.currency)} label={t("Cost by kind")} segments={[{ label: t("Parts"), value: r.total.part, color: PALETTE[0] }, { label: t("Labour"), value: r.total.labour + r.total.time, color: PALETTE[1] }, { label: t("Services"), value: r.total.service, color: PALETTE[2] }, { label: t("Vendor invoices"), value: r.total.invoice, color: PALETTE[3] }, { label: t("Other"), value: r.total.other, color: PALETTE[6] }, { label: t("Vehicle trips"), value: r.total.vehicle, color: PALETTE[4] }]} />
               </ChartCard>
             </div>
           )}

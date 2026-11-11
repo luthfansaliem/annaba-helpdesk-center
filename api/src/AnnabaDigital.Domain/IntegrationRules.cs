@@ -9,7 +9,7 @@ namespace AnnabaDigital.Domain;
 public static class IntegrationRules
 {
     public const string TokenPrefix = "adk_";
-    public static readonly string[] Scopes = ["tickets.read", "tickets.write", "catalog.read"];
+    public static readonly string[] Scopes = ["tickets.read", "tickets.write", "catalog.read", "directory.write"];
     public static readonly string[] Events = ["ticket.created", "ticket.status_changed", "ticket.assigned", "ticket.commented", "workorder.completed"];
     public const int MaxAttempts = 8, MaxKeys = 50, MaxEndpoints = 20, RequestsPerMinute = 120;
 

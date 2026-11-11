@@ -84,4 +84,4 @@ src/
 Vercel (Node runtime — required for native Argon2) + managed Postgres (pooled connection string for serverless) + email provider. Migrations run as a **separate release step**, never at app boot. Cron (Vercel Cron) for retention purge and expired-token cleanup. See `12-migration-and-rollback.md`.
 
 ## 10. PWA constraint (implemented)
-The service worker caches only public hashed assets and a static offline page; it must never cache HTML, RSC or API responses (enforced by tests in `src/__tests__/sw.test.ts`). Any future offline feature requires a separate security review.
+The service worker caches only public hashed assets and a static offline page; it must never cache HTML, RSC or API responses (enforced by tests in `src/__tests__/sw.test.ts`). Any future offline feature requires a separate security review. **R3-11:** reviewed in ADR-GA-07 (doc 66). Field mode keeps a person's own open work orders and queued changes in IndexedDB (never in the service worker), expires them after 72 hours, wipes them on sign-out, and replays changes with idempotency keys. The rule above is unchanged.

@@ -60,6 +60,13 @@ test.describe("helpdesk homes and module analytics", () => {
       await axe(page, path);
     }
 
+    // the period of a module summary: the finished-work figures follow the chosen period
+    await page.goto("/work-orders");
+    const glance = page.getByRole("region", { name: "Work orders at a glance" });
+    await expect(glance.getByText(/from creation · last 30 days/)).toBeVisible();
+    await page.getByLabel("Period", { exact: true }).selectOption("365");
+    await expect(glance.getByText(/from creation · last 12 months/)).toBeVisible();
+
     // the old account overview lives under People & access now
     await page.goto("/access");
     await expect(page.getByRole("heading", { name: "Access overview" })).toBeVisible();

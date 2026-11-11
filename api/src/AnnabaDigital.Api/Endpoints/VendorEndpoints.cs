@@ -13,7 +13,7 @@ public static class VendorEndpoints
         var g = app.MapGroup("/api/vendors");
         g.MapGet("/", async (string? q, string? status, Guid? locationId, int? page, int? pageSize, VendorService svc, HttpContext ctx)
             => Results.Ok(await svc.ListAsync(q, status, locationId, page ?? 1, pageSize ?? 25, ctx.RequestAborted))).RequirePermission(Permissions.VendorsRead);
-        g.MapGet("/summary", async (VendorService svc, HttpContext ctx) => Results.Ok(await svc.SummaryAsync(ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.VendorsRead);
+        g.MapGet("/summary", async (int? days, VendorService svc, HttpContext ctx) => Results.Ok(await svc.SummaryAsync(ctx.RequirePrincipal(), days, ctx.RequestAborted))).RequirePermission(Permissions.VendorsRead);
         g.MapGet("/pick", async (string? q, VendorService svc, HttpContext ctx) => Results.Ok(await svc.PickAsync(q, ctx.RequestAborted))).RequirePermission(Permissions.WorkOrdersManage);
         g.MapGet("/{id:guid}", async (Guid id, VendorService svc, HttpContext ctx) => Results.Ok(await svc.GetAsync(id, ctx.RequirePrincipal(), ctx.RequestAborted))).RequirePermission(Permissions.VendorsRead);
         g.MapPost("/", async (SaveVendorRequest body, VendorService svc, HttpContext ctx) =>

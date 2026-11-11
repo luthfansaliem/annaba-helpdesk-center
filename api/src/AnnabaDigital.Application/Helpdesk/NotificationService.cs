@@ -23,7 +23,7 @@ public sealed record SaveNotificationPrefsRequest(NotificationPrefChange[]? Item
 /// respects their "e-mail notifications" preference — except approval requests, which are actionable and always mailed. Nobody is notified about
 /// their own action. Sending is part of the caller's unit of work: nothing is announced for a change that did not save.
 /// </summary>
-public sealed class NotificationService(IAppDb db, IClock clock, IEmailQueue email, IAppLinks links, AuditWriter audit)
+public sealed class NotificationService(IAppDb db, IClock clock, IEmailQueue email, IAppLinks links, AuditWriter audit, ChannelService channels)
 {
     public const int MaxSupervisors = 10;
     private string Url(string path) => links.Origin.TrimEnd('/') + path;
@@ -66,7 +66,10 @@ public sealed class NotificationService(IAppDb db, IClock clock, IEmailQueue ema
         if (!force && !(pref?.Email ?? mail is not null)) return;
         var u = await db.Users.AsNoTracking().Where(x => x.Id == userId && x.Status == UserStatus.Active)
             .Select(x => new { x.Name, x.Email, Notify = db.Profiles.Where(p => p.UserId == x.Id).Select(p => (bool?)p.NotifyEmail).FirstOrDefault() }).FirstOrDefaultAsync(ct);
-        if (u is null || (!force && u.Notify == false)) return;
+        if (u is null) return;
+        // NTF-003: the person's channels get what would be e-mailed; one that replaces e-mail holds the e-mail back (it is sent if every such channel fails)
+        if (await channels.QueueAsync(userId, kind, title, body, link, ct)) return;
+        if (!force && u.Notify == false) return;
         email.Enqueue(mail is not null ? mail(u.Email, u.Name) : EmailTemplates.Notification(u.Email, u.Name, title, body, Url(link ?? "/notifications")));
     }
 

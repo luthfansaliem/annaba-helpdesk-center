@@ -123,7 +123,7 @@ function Detail({ id }: { id: string }) {
             {tab === "overview" && (
               <div className="kv wide">
                 <span>{t("Status")}</span><UserStatusBadge status={u.status} locked={u.locked} /><span>{t("Email")}</span><b>{u.email}</b><span>{t("Roles")}</span><b>{u.roles.map((r) => r.name).join(", ")}</b>
-                <span>{t("Department")}</span><b>{u.department ?? "—"}</b><span>{t("Job title")}</span><b>{u.jobTitle ?? "—"}</b><span>{t("Created")}</span><b>{fmtDateTime(u.createdAt)}</b>
+                <span>{t("Department")}</span><b>{u.department ?? "—"}</b><span>{t("Job title")}</span><b>{u.jobTitle ?? "—"}</b><span>{t("Employee ID")}</span><b>{u.employeeId ?? "—"}</b><span>{t("Home site")}</span><b>{u.siteName ?? "—"}</b><span>{t("Created")}</span><b>{fmtDateTime(u.createdAt)}</b>
                 <span>{t("Last login")}</span><b>{rel(u.lastLoginAt)}</b><span>{t("Active sessions")}</span><b>{u.activeSessions}</b><span>{t("MFA")}</span><b>{u.mfaEnabled ? t("Enabled") : t("Not enabled")}</b>
               </div>
             )}

@@ -433,10 +433,13 @@ public sealed class MaintenanceService(IAppDb db, IClock clock, AuditWriter audi
     }
     // ================================================================ summary (module analytics, docs/52)
     /// <summary>Planned maintenance at a glance: active and paused plans, what falls due in 7 and 30 days, visits that are overdue, compliance over the last
-    /// 90 days and per month for six months (the same states as the compliance report), and the next plans due.</summary>
-    public async Task<MaintenanceSummary> SummaryAsync(CancellationToken ct = default)
+    /// period (<paramref name="days"/>, default 90) and per month (six months, up to twelve for a longer period; the same states as the compliance report),
+    /// and the next plans due.</summary>
+    public async Task<MaintenanceSummary> SummaryAsync(int? days = null, CancellationToken ct = default)
     {
         var (today, _) = await TodayAsync(ct);
+        var period = InsightWindow.Of(days, 90);
+        var months = Math.Clamp((period + 29) / 30, 6, 12);
         var in7 = today.AddDays(7); var in30 = today.AddDays(30);
         var plans = await db.MaintenancePlans.AsNoTracking().GroupBy(p => p.PausedAt == null).Select(g => new
         {
@@ -444,16 +447,16 @@ public sealed class MaintenanceService(IAppDb db, IClock clock, AuditWriter audi
         }).ToListAsync(ct);
         var overdue = await db.MaintenanceVisits.AsNoTracking().CountAsync(v => !v.Missed && v.DueOn < today
             && db.WorkOrders.Any(w => w.Id == v.WorkOrderId && w.Status != WorkOrderStatus.Done && w.Status != WorkOrderStatus.Cancelled), ct);
-        var first = new DateOnly(today.Year, today.Month, 1).AddMonths(-5);
-        var since90 = today.AddDays(-89);
-        var since = since90 < first ? since90 : first;
+        var first = new DateOnly(today.Year, today.Month, 1).AddMonths(-(months - 1));
+        var sincePeriod = today.AddDays(-(period - 1));
+        var since = sincePeriod < first ? sincePeriod : first;
         var rows = await VisitRows(db.MaintenanceVisits.AsNoTracking().Where(v => v.DueOn >= since && v.DueOn <= today)).Take(50_000).ToListAsync(ct);
-        var last90 = Summarise("last90", "Last 90 days", rows.Where(r => r.DueOn >= since90).Select(r => State(r, today)));
-        var monthly = Enumerable.Range(0, 6).Select(i => first.AddMonths(i)).Select(m => Summarise(m.ToString("yyyy-MM"), m.ToString("yyyy-MM"),
+        var inPeriod = Summarise("period", $"Last {period} days", rows.Where(r => r.DueOn >= sincePeriod).Select(r => State(r, today)));
+        var monthly = Enumerable.Range(0, months).Select(i => first.AddMonths(i)).Select(m => Summarise(m.ToString("yyyy-MM"), m.ToString("yyyy-MM"),
             rows.Where(r => r.DueOn.Year == m.Year && r.DueOn.Month == m.Month).Select(r => State(r, today)))).ToList();
         var upcoming = await db.MaintenancePlans.AsNoTracking().Where(p => p.PausedAt == null && p.NextDueOn != null).OrderBy(p => p.NextDueOn).ThenBy(p => p.Name).Take(6)
             .Select(p => new PlanDue(p.Id, p.Name, p.NextDueOn!.Value)).ToListAsync(ct);
         var active = plans.FirstOrDefault(x => x.Active);
-        return new MaintenanceSummary(active?.N ?? 0, plans.Where(x => !x.Active).Sum(x => x.N), active?.D7 ?? 0, active?.D30 ?? 0, overdue, last90, monthly, upcoming);
+        return new MaintenanceSummary(period, active?.N ?? 0, plans.Where(x => !x.Active).Sum(x => x.N), active?.D7 ?? 0, active?.D30 ?? 0, overdue, inPeriod, monthly, upcoming);
     }
 }

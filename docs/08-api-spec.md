@@ -354,7 +354,7 @@ Work orders (change in this slice): completing the last required work order now 
 |---|---|---|
 | `PUT /api/tickets/{id}/rating` | the ticket's requester | `{ score (1–5), comment? (≤ 1000) }`; only when the ticket is *resolved* or *closed* and at most 14 days after it was resolved (`409` otherwise, and always for planned-maintenance tickets); staff get `404`/`403`. Changing a rating updates it; a timeline line is added ("Rated 4 out of 5." / "Changed the rating from 2 to 4 out of 5."). A score of 1–2 notifies the team's leads (`ticket.low_rating`, in-app and e-mail) once per ticket — or, when the team has no lead, up to 20 people with `tickets.read_all` |
 | `GET /api/tickets/{id}` | as before | now includes `rating { score, comment, at, canRate, rateUntil }` |
-| `GET /api/reports/csat?days&by` | `tickets.read_team` | `days` 1–365 (default 30), `by` = `team` (default), `agent`, `site`, `vendor` (vendors of the ticket's work orders; "In-house" otherwise). `{ ownOnly, count, average, satisfiedPercent (4–5), low (1–2), distribution[1..5], rows[{ key, label, count, average, satisfiedPercent, low }], comments (latest 20) }`. People without `tickets.read_all` see only ratings of tickets they were working (`ownOnly: true`) |
+| `GET /api/reports/csat?days&by` | `tickets.read_team` | `days` 1–365 (default 30), `by` = `team` (default), `agent`, `site`, `vendor` (vendors of the ticket's work orders; "In-house" otherwise). `{ ownOnly, count, average, satisfiedPercent (4–5), low (1–2), distribution[1..5], rows[{ key, label, count, average, satisfiedPercent, low }], comments (latest 20), trendUnit ("week" up to 90 days, else "month"), trend[{ period, count, satisfied, low, average, satisfiedPercent }] }` (empty weeks or months are kept). People without `tickets.read_all` see only ratings of tickets they were working (`ownOnly: true`) |
 
 The vendor scorecard (`GET /api/vendors/{id}`) now carries `score.rating` (average requester rating of tickets with work by the vendor) and `score.ratings`. The "resolved" e-mail asks for a rating.
 
@@ -414,14 +414,156 @@ Webhook events: `ticket.created`, `ticket.status_changed` (`extra: { from, to, a
 
 A vendor's person reaches only `/api/auth`, `/api/me`, `/api/sessions/me`, `/api/notifications`, `/api/work-orders`, `/api/settings/public` and `/api/avatars`; anything else is `403` ("Vendor accounts can only see their company's work orders."). On work orders their scope is the vendor's work orders: they list, read and work them (start/hold/resume, checklist, photos, time, complete) without becoming the assignee; `mine=true` means their company's work.
 
-### 12.20 Module summaries (UI review, doc 52)
-Read-only numbers for the analytics above each module list. Each uses the module's read permission and the same scope as its list; every count is done by the database.
+### 12.21 Bookings (R3 slice 1, doc 56)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/resources?kind&locationId&q&capacity&feature&archived` | signed in | Active resources (`archived=true` adds archived ones for `resources.manage`), a place includes everything below it, at most 200. Item: `{ id, kind, name, code, description, locationId, place, capacity, features[], openFrom, openUntil (HH:mm or null), openDays (bit mask, Mon = 1), bufferMinutes, maxMinutes, needsApproval, allowedRoleIds[], archived, timeZone, canBook, version }` |
+| `GET /api/resources/{id}` | signed in | 404 for an archived resource unless `resources.manage` |
+| `POST /api/resources` · `PUT /api/resources/{id}` | `resources.manage` | Body as the item (without id, place, timeZone, canBook). 422 per field; a stale `version` or duplicate code is 409/422 |
+| `POST /api/resources/{id}/archive` · `…/restore` | `resources.manage` | Archiving a resource with upcoming bookings is 409 |
+| `GET /api/bookings/availability?from&to&kind&locationId&capacity&feature&resourceId` | signed in | At most 31 days. `{ from, to, rows[{ resource, bookings[], freeNow }] }`: live bookings overlapping the window (buffer included) |
+| `GET /api/bookings?scope=mine|all&from&to&resourceId&cancelled&page&pageSize` | signed in (`all`: `bookings.read_all` or `bookings.manage`) | `mine` = booked for or by me. `{ data, page, pageSize, total }` |
+| `GET /api/bookings/{id}` | signed in | 404 unless it is mine or I hold `bookings.read_all`/`bookings.manage` |
+| `POST /api/bookings` · `PUT /api/bookings/{id}` | signed in | `{ resourceId, startsAt, endsAt, title, attendees?, note?, bookedForId?, version? }`. 422: past (15-minute grace), more than 365 days ahead, not on 5-minute steps, longer than the resource allows (default 14 days), outside opening hours or days, more people than it holds, a role-restricted or archived resource, `bookedForId` other than me without `bookings.manage`. 409: the slot is taken (message names the clashing time, never who or why), or a concurrent booking won (constraint or deadlock) |
+| `POST /api/bookings/{id}/cancel` | signed in | `{ reason? }`; someone else's booking needs `bookings.manage` and a reason; the person is notified (`booking.changed`) |
+| `GET /api/bookings/summary` | signed in | `{ resources, bookingsToday, inUseNow, freeNow, myUpcoming, utilisationPercent (rooms and vehicles, booked ÷ opening hours, last 7 days), byKind, next7Days[{ day, bookings }], busiest }` |
+
+Booking for yourself needs no permission, like making a request; a vendor's person never reaches these routes (vendor portal gate, §12.19). A booking item hides `title`, `bookedFor`, `note` and `attendees` (null) from people who are neither involved nor hold `bookings.read_all`/`bookings.manage`: others see only that the time is taken.
+
+### 12.22 Booking lifecycle (R3 slice 2, doc 57)
+| Route | Who | Notes |
+|---|---|---|
+| `POST /api/bookings/series` | signed in | `{ resourceId, startsAt, endsAt, title, attendees?, note?, every: day|weekday|week, until?: date, count?: 2–52, bookedForId? }`. Every occurrence keeps the local start time in the resource's zone. Occurrences that clash or break a rule are skipped: `{ seriesId, made[], skipped[{ startsAt, reason }] }`. 422 for a bad first occurrence or more than 52; 409 when none can be booked |
+| `POST /api/bookings/{id}/approve` · `…/reject` | `bookings.manage` | `{ note? }` (a rejection needs one). Only a pending booking; the person (and whoever booked for them) is told (`booking.decided`) |
+| `POST /api/bookings/{id}/check-in` | signed in (own) or `bookings.manage` | Open from 15 minutes before the start until the resource's check-in limit; 409 outside it, twice, or when the resource needs none |
+| `POST /api/bookings/{id}/cancel` | as in §12.21 | `scope`: `this` (default) or `following` (this and the later live bookings of its series) |
+| `GET /api/bookings?scope=pending` | `bookings.manage` | Bookings waiting for approval |
+| `GET/POST/DELETE /api/bookings/feed` | signed in | State of my calendar link; make a new one (`{ url }` shown once; the old one stops working); turn it off |
+| `GET /api/calendar/{token}.ics` | **anonymous** (the secret token is the credential) | `text/calendar`: the person's pending and confirmed bookings from 30 days ago to 180 days ahead (RFC 5545, escaped and folded). Unknown, retired or turned-off tokens and inactive accounts get 404 |
+
+A booking item adds `status` pending, rejected or released, `seriesId`, `repeat`, `checkedInAt`, `canCheckIn`, `canDecide`, `decisionNote`, `needsCheckIn`; a resource adds `checkInMinutes`; the summary adds `pendingApprovals` (for `bookings.manage`) and `noShows7`. A new booking (or a move by its owner) on a resource that needs approval is pending unless the person holds `bookings.manage`; approvers are told (`booking.approval`, at most 20 people).
+
+Background (every minute, `BookingWorker`): a reminder 30 minutes before a confirmed booking (`booking.reminder`, once); release of a confirmed booking nobody checked in to within the resource's limit (status `released`, the person is told); a booking still pending when it starts is refused ("Not approved before it started"). Each item is claimed in one UPDATE.
+
+### 12.23 Vehicles and utilisation (R3 slice 3, doc 58)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/bookings/{id}/trip` | the people booked for or by, the driver, or `bookings.manage` | 409 for a booking that is not of a vehicle. `{ …, needsDriver, driverId, driver, driverLicence, destination, purpose, odometerOut/In, pickedUpAt, returnedAt, distance, fuelCost, tollCost, parkingCost, cost, damageNotes, checklist[{item, ok}], canEdit, canAssignDriver, canPickUp, canReturn, lastOdometer, version }` |
+| `PUT /api/bookings/{id}/trip` | same | `{ destination?, purpose?, needsDriver?, driverId?, version? }`. Only `bookings.manage` assigns someone else; a driver whose recorded licence expired before the start is refused (422). Asking for a driver alerts managers (`vehicle.alert`); the assigned driver is told. Final once returned (409) |
+| `POST /api/bookings/{id}/trip/pick-up` | same | `{ odometerOut }`: from 30 minutes before the start until the end, not below the vehicle's last return reading; counts as check-in |
+| `POST /api/bookings/{id}/trip/return` | same | `{ odometerIn, fuelCost?, tollCost?, parkingCost?, damageNotes?, checklist: { fuel, clean, no_new_damage, keys, documents } }`: every item answered; damage described when `no_new_damage` is false (managers alerted). Returning early ends the booking at the next 5-minute step |
+| `GET/POST /api/resources/{id}/documents` · `PUT/DELETE …/{docId}` | `resources.manage` | `{ kind: registration|insurance|inspection|service|other, number?, expiresOn, note? }`; items carry `state` ok, soon (30 days) or expired |
+| `GET /api/drivers/licences` · `POST /api/drivers/licences` · `PUT/DELETE /api/drivers/{userId}/licence` | `resources.manage` | `POST` takes the driver's `email` (an active person) with `number`, `class?`, `expiresOn` |
+| `GET /api/drivers` | `bookings.manage` | People with a licence on record, valid ones first (the driver picker) |
+| `GET /api/reports/utilisation?days&kind` | `bookings.read_all` | 7–365 days (default 30). Per resource: `openHours`, `bookedHours` (confirmed bookings inside opening hours), `percent`, `bookings`, `noShows`, `cancelled`, `trips`, `km`, `tripCost`; and a `total` row |
+
+The cost report (§12.16) adds `vehicle` to every row: fuel, toll and parking of trips returned in the period, on the day of return, at the vehicle's place, for the person booked for; grouped by category or service they show as "Vehicle trips". They count in `total` but not in `workOrders`; the CSV gains a `vehicle trips` column. A daily run reminds `resources.manage` holders of documents and licences 30 days before and on expiry (`resource.document`), and the driver of their own licence.
+
+### 12.24 Visitors (R3 slice 4, doc 59)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/visits?scope=mine|day|all&date&locationId&status&q&page&pageSize` | signed in (`day`: `visitors.checkin` or `visitors.read_all`; `all`: `visitors.read_all`) | `mine` = visitors I host or registered; `day` = expected on that date (organisation's time zone) or on site now. `q` matches name, company, plate |
+| `GET /api/visits/{id}` | host, registrant, reception or read-all | Item: visitor details, host, place, window, `status` (expected, checked_in, checked_out, cancelled, no_show), `flag` and `idLast4` (reception and read-all only), badge, times, `anonymised`, `canChange`, `canReceive` |
+| `POST /api/visits` · `PUT /api/visits/{id}` | signed in | `{ visitorName, company?, email?, phone?, vehiclePlate?, hostId?, hostEmail?, locationId?, purpose?, expectedFrom, expectedUntil, version? }`. Only `visitors.checkin` registers for another host (by id or e-mail). At most 7 days; not in the past; a year ahead at most. A name on the block list is flagged and `visitors.manage` holders are told (`visitor.flagged`) |
+| `POST /api/visits/{id}/cancel` | host, registrant or reception | Expected visits only |
+| `POST /api/visits/{id}/check-in` | `visitors.checkin` | `{ badgeNumber, idLast4?, acknowledged? }`. Refused (409) while the visitor matches an active block-list entry; the ID digits and the acknowledgement are required when the settings ask; a badge already with a visitor on site is refused. The host is told (`visitor.arrived`) |
+| `POST /api/visits/{id}/check-out` | `visitors.checkin` | |
+| `GET /api/visits/summary` | `visitors.checkin` or `visitors.read_all` | `{ expectedToday, onSiteNow, checkedOutToday, noShows30, flagged, visitors30, perDay[30], bySite }` |
+| `GET /api/visitors/settings` · `PUT` | signed in · `visitors.manage` | `{ acknowledgement, askIdLast4, retentionDays (7–3650) }` |
+| `GET/POST /api/visitors/blocks` · `DELETE …/{id}` | `visitors.manage` | `{ name, company?, reason }`; adding or removing re-flags the expected visits |
+
+The hourly scheduler turns expected visits whose window has passed into no-shows and blanks the personal details of finished visits older than the retention period (audit `visit.housekeeping`).
+
+### 12.25 Mail and courier (R3 slice 5, doc 60)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/mail?scope=mine|desk&direction&status&q&page&pageSize` | signed in (`desk`: `mail.manage`) | `mine` = logged for or by me (voided hidden). `status`: waiting, collected, registered, sent, voided or `open`; `q` matches the person, the other party or the waybill |
+| `POST /api/mail` | `mail.manage` | `{ direction, kind?, personEmail | personId, otherParty?, address?, carrier?, waybill?, description?, locationId? }`; an outgoing item needs the addressee. Incoming: the person is told at once (`mail.arrived`) |
+| `POST /api/mail/{id}/collect` | `mail.manage` | `{ collectedBy? (defaults to the person), note? }`, incoming items waiting only |
+| `POST /api/mail/{id}/send` | `mail.manage` | `{ carrier, waybill, note? }`, outgoing items not yet sent; the sender is told (`mail.sent`) |
+| `POST /api/mail/{id}/void` | `mail.manage` | `{ note }` required; only items still at reception |
+| `GET /api/mail/summary` | `mail.manage` | `{ waiting, waitingOver2Days, receivedToday, collectedToday, outgoingPending, sentThisWeek, oldestWaitingDays, received30[30], byCarrier }` |
+
+The hourly scheduler reminds the person once when incoming mail has waited two days, and blanks the other party, address, waybill, description, collector and note of finished items older than the visitor retention period (audit `mail.housekeeping`).
+
+### 12.26 Inventory (R3 slice 6, doc 61)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/inventory/items?q&category&locationId&low&archived` | `inventory.read` | Items with `total`, `low` and `stock[{ locationId, place, quantity, low }]` (a place filter keeps only that place's stock) |
+| `GET /api/inventory/items/{id}` | `inventory.read` | |
+| `POST /api/inventory/items` · `PUT …/{id}` · `POST …/{id}/archive` · `…/restore` | `inventory.manage` | `{ sku, name, category, unit, reorderLevel, reorderQuantity?, unitCost?, description?, version? }`. An item with stock cannot be archived (409) |
+| `POST /api/inventory/items/{id}/moves` | `inventory.read` plus, by kind: receipt, issue, transfer → `inventory.manage`; adjustment → `inventory.adjust` | `{ kind, locationId, quantity, unitCost?, reference?, toLocationId? }`. Adjustments are signed and need a reason. Not enough stock → 409 ("Only 3 ream of … left at this place"). A receipt's unit cost becomes the item's. Returns the ledger lines written |
+| `GET /api/inventory/movements?itemId&locationId&page&pageSize` | `inventory.read` | Newest first |
+| `GET /api/inventory/reorder` | `inventory.read` | Item and place pairs at or below the reorder level, with `suggested` (the reorder quantity, else twice the level minus what is left) and its `cost` |
+| `GET /api/inventory/summary` | `inventory.read` | `{ items, lowLines, stockValue, issued30, received30, byCategory, topIssued, issued30Days }` |
+| `GET /api/inventory/stock-takes` · `GET …/{id}` | `inventory.read` | The last 20 counts with lines (`expected`, `counted`, `variance`) |
+| `POST /api/inventory/stock-takes` · `PUT …/{id}/counts` · `POST …/{id}/close` | `inventory.adjust` | `{ locationId, note? }`; one open count per place. Counts `{ counts: { itemId: n } }`. Closing posts a Count movement for every counted difference |
+
+When a balance falls to the reorder level, `inventory.manage` holders are told once (`stock.low`); the alert re-arms when the balance rises above the level again.
+
+### 12.27 Supply requests (R3 slice 7, doc 62)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/supplies/catalog?locationId&q` | signed in | Active items with `available` at the place (the default place when none is given) and `unitCost` |
+| `GET /api/supplies/requests?scope&status&page&pageSize` | signed in; `scope=desk` needs `supplies.fulfil` | `scope`: `mine` (default), `approvals` (waiting for me) or `desk`. `status`: `active` or one status. Each request has `lines[{ quantity, issued, backOrder, available }]` and `canCancel`, `canDecide`, `canFulfil` |
+| `GET /api/supplies/requests/{id}` | the requester, the approver or `supplies.fulfil` | Others get 404 |
+| `POST /api/supplies/requests` | signed in | `{ locationId?, note?, lines: [{ itemId, quantity }] }` (1–30 items, 1–10 000 each). Pending when the estimate reaches the approval amount, else open |
+| `POST …/{id}/cancel` | the requester | Only while nothing was issued (409) |
+| `POST …/{id}/decide` | the approver (the manager, or `supplies.fulfil` when there is none) | `{ approve, note }`; a rejection needs a note |
+| `POST …/{id}/fulfil` | `supplies.fulfil` | `{ lines: { itemId: quantity } }`, at most what is outstanding (422). Not enough stock → 409 and nothing is issued. Partly issued keeps the rest as back-order |
+| `POST …/{id}/close` | `supplies.fulfil` | `{ note }` (required). Closed when something was issued, else rejected |
+| `GET /api/supplies/summary` | `supplies.fulfil` | `{ pending, open, partlyFulfilled, fulfilled30, issued30Cost, topItems }` |
+| `GET /api/supplies/settings` · `PUT` | signed in · `inventory.manage` | `{ approvalAbove, defaultLocationId }` |
+| `POST /api/work-orders/{id}/parts` | `workorders.costs` (not vendor accounts) | INV-005. `{ itemId, locationId, quantity }`: issues from stock and adds a part cost line at the item's cost. Deleting that cost line returns the stock |
+
+Notifications: `supply.new` (the desk), `supply.approval` (the manager), `supply.update` (the requester).
+
+### 12.28 Report exports and schedules (R3 slice 8, doc 63)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/reports/catalog` | signed in | The reports the caller may see: `[{ key, label, permission, description, defaultDays }]` |
+| `GET /api/reports/export?report&days&format` | the report's permission | `format` csv (default) or xlsx; `days` 1–365. A file download (`no-store`) with `X-Report-Rows` and, when cut at 5 000 rows, `X-Report-Truncated: true`. Audited |
+| `GET /api/report-schedules` | signed in | The caller's schedules (`audit.read`: everyone's), each with `recipients[{ name, email, canSee }]`, `nextRunAt`, `lastResult` |
+| `POST /api/report-schedules` · `PUT …/{id}` | the owner | `{ name, report, format, frequency, weekday, monthDay, hour, days, recipients: [e-mail], active, version? }`. The owner and every recipient must be able to see the report (422 names who cannot). At most 30 schedules per owner |
+| `DELETE …/{id}` · `POST …/{id}/send` | the owner | Send now keeps the regular time |
+
+Every file is built with the recipient's own permissions; recipients who lost access are skipped, and a schedule whose owner lost access is paused.
+
+### 12.29 Directory: groups, HR sync and SCIM (R3 slice 9, doc 64)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/directory/overview` | `directory.manage` | `{ ssoGroupsClaim, mappings, scimGroups, scimUsers, lastScimAt, lastSyncAt }` |
+| `GET /api/directory/mappings` · `POST` · `DELETE …/{id}` | `directory.manage` (+ recent re-auth to change) | `{ group, roleId }`. Super Admin is refused (422); a role the caller cannot grant is refused (403) |
+| `POST /api/directory/sync` | `directory.manage` (+ re-auth to apply) | `{ csv, dryRun, suspendMissing }` → `{ rows, updated, suspended, unchanged, notFound, failed, details[{ line, email, action, detail }] }` |
+| `POST /api/v1/directory/sync` | API key, scope `directory.write`, owner holds `directory.manage` | The same, for a nightly job (no re-auth) |
+| `/api/v1/scim/v2/ServiceProviderConfig` · `/Users` · `/Users/{id}` · `/Groups` · `/Groups/{id}` | API key, scope `directory.write` | SCIM 2.0: GET (filter `attr eq "value"`, `startIndex`, `count` ≤ 200), POST, PUT, PATCH, DELETE. Bodies and errors are `application/scim+json` |
+
+SSO: the OIDC client reads `Sso__GroupsClaim` (default `groups`); at each sign-in the person's directory-managed roles follow their mapped groups.
+
+### 12.30 Notification channels (R3 slice 10, doc 65)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/channels/settings` · `PUT …/{kind}` | `integrations.manage` | `{ enabled, settings: {…}, secrets: {…} }` (an empty secret keeps the stored one). Answers `{ kind, enabled, settings, secretsSet, people, failed7, updatedAt }`; secrets are never returned. Turning on without what the channel needs → 422 per missing field |
+| `GET /api/channels/deliveries?kind` | `integrations.manage` | The last 100: channel, purpose, notification kind, person, attempts, delivered/failed, last error, `fellBack`; no message text |
+| `GET /api/me/channels` | signed in | `{ available, mine[{ kind, hint, verified, enabled, replaceEmail, lastError, codePending }] }` |
+| `POST /api/me/channels/{kind}` | signed in | WhatsApp `{ address: phone }` sends a code; Slack `{}` finds the person by e-mail; Teams `{ address: Workflows URL }` |
+| `POST /api/me/channels/whatsapp/verify` | signed in | `{ code }`, 10 minutes, 5 tries |
+| `PUT /api/me/channels/{kind}` · `DELETE` · `POST …/{kind}/test` | signed in | `{ enabled, replaceEmail }` |
+
+### 12.31 Field mode (R3 slice 11, doc 67, ADR-GA-07)
+| Route | Who | Notes |
+|---|---|---|
+| `GET /api/work-orders/offline` | `workorders.complete` | `{ takenAt, items }`: at most 50 of the caller's own open work orders, as on the work-order page, with costs left out |
+| Any `POST`/`PUT`/`DELETE` under `/api/work-orders` with `Idempotency-Key` | as the route | A key already used successfully by the same person answers 200 with the work order as it is now and the header `Idempotent-Replayed: true`, without repeating the change. Keys: ≤ 100 characters, letters, digits and `- _ : .` (else 422); kept 7 days |
+
+### 12.20 Module summaries (UI review, doc 52; periods, doc 54)
+Read-only numbers for the analytics above each module list. Each uses the module's read permission and the same scope as its list; every count is done by the database. Work orders, vendors and maintenance take `?days=` (7–365, clamped; the response echoes it as `days`): it sets the window for finished work, compliance, ratings and spend. What is open, overdue or due soon is always "now". Assets and the knowledge base are snapshots and take no period.
 | Route | Who | Returns |
 |---|---|---|
-| `GET /api/work-orders/summary` | `workorders.read` | over the work orders the person may see (a vendor's person: their company's): `open`, `overdue`, `dueThisWeek`, `done30`, `onTime30`, `late30`, `avgCompletionHours` (done in 90 days, from creation), `inHouseOpen`, `vendorOpen`, `byStatus` (open, in_progress, on_hold), `weekly[12]` `{week, created, done}`, `byVendor` (top 6 open) |
+| `GET /api/work-orders/summary?days` | `workorders.read` | `days` default 30. Over the work orders the person may see (a vendor's person: their company's): `open`, `overdue`, `dueThisWeek`, `done`, `onTime`, `late` (finished in the period), `avgCompletionHours` (finished in the period, from creation), `inHouseOpen`, `vendorOpen`, `byStatus` (open, in_progress, on_hold), `weekly` `{week, created, done}` (12 weeks, or ⌈days/7⌉ up to 53 for a longer period), `byVendor` (top 6 open), `byCategory` (top 10 service categories by average time, slowest first: `{key, label, done, avgHours}`) |
 | `GET /api/assets/summary` | `assets.read` | `active`, `retired`, `warrantyExpired`, `warranty30`, `warranty90`, `unplaced`, `value` (purchase cost in service), `pmDue30`, `byStatus`, `byType` (top 8), `bySite` (top 8, a place counts for its site), `mostTickets` (top 5 in 12 months) |
-| `GET /api/vendors/summary` | `vendors.read` | `active`, `blocked`, `contractsActive`, `contractsExpiring60`, `openWorkOrders`, `overdueWorkOrders`, `spend12Months`, `top[8]` `{id, name, workOrders, done, open, onTime, late, spend, rating, ratings}`. Money (`spend*`) is `null` without `workorders.costs` |
-| `GET /api/maintenance/summary` | `pm.read` | `active`, `paused`, `due7`, `due30`, `overdueVisits`, `last90` and `monthly[6]` (compliance rows: planned, onTime, late, open, overdue, missed, cancelled, percent), `upcoming[6]` `{id, name, nextDueOn}` |
+| `GET /api/vendors/summary?days` | `vendors.read` | `days` default 365. `active`, `blocked`, `contractsActive`, `contractsExpiring60`, `openWorkOrders`, `overdueWorkOrders`, `spend` (cost lines added in the period), `top[8]` `{id, name, workOrders, done, open, onTime, late, spend, rating, ratings}`: open work whenever it started, finished work and ratings only from the period. Money (`spend`) is `null` without `workorders.costs` |
+| `GET /api/maintenance/summary?days` | `pm.read` | `days` default 90. `active`, `paused`, `due7`, `due30`, `overdueVisits`, `period` (visits due in the period) and `monthly` (6 months, up to 12 for a longer period) as compliance rows (planned, onTime, late, open, overdue, missed, cancelled, percent), `upcoming[6]` `{id, name, nextDueOn}` |
 | `GET /api/kb/summary` | `kb.write` | `published`, `drafts`, `archived`, `reviewDue`, `views`, `deflections`, `helpful`, `notHelpful`, `top[5]` `{id, title, views, deflections, helpfulPercent}`, `byCategory` (published) |
 
 Form field model (`FormField`): `key` (`^[a-z][a-z0-9_]{0,39}$`, unique), `type` (`text` `long_text` `number` `date` `datetime` `select` `multi_select` `yes_no` `location` `user` `file`), `label`, `help?`, `required?`, `options?[{value,label}]`, `min?` `max?` (number), `maxLength?` (text), `pattern?` (short text), `visibleWhen?{field, op: equals|not_equals|in|filled|empty, values?}` — a condition may only look at an earlier question.

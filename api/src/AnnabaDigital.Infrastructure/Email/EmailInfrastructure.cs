@@ -37,6 +37,7 @@ public sealed class ConsoleEmailSender(ILogger<ConsoleEmailSender> log, IOptions
     {
         if (options.Value.LogBodies) log.LogInformation("EMAIL to={To} subject={Subject}\n{Text}", m.To, m.Subject, m.Text);
         else log.LogInformation("EMAIL to={To} subject={Subject} (body hidden; set Email:LogBodies=true in development to print links)", m.To, m.Subject);
+        if (m.Attachment is { } a) log.LogInformation("EMAIL attachment {File} ({Bytes} bytes)", a.FileName, a.Content.Length);
         return Task.CompletedTask;
     }
 }
@@ -51,7 +52,9 @@ public sealed class ResendEmailSender(HttpClient http, IOptions<EmailOptions> op
         if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("No email API key is configured.");
         using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
-        req.Content = JsonContent.Create(new { from = o.From, to = new[] { m.To }, subject = m.Subject, text = m.Text, html = m.Html });
+        req.Content = m.Attachment is { } a
+            ? JsonContent.Create(new { from = o.From, to = new[] { m.To }, subject = m.Subject, text = m.Text, html = m.Html, attachments = new[] { new { filename = a.FileName, content = Convert.ToBase64String(a.Content), content_type = a.ContentType } } })
+            : JsonContent.Create(new { from = o.From, to = new[] { m.To }, subject = m.Subject, text = m.Text, html = m.Html });
         using var res = await http.SendAsync(req, ct);
         if (!res.IsSuccessStatusCode) throw new HttpRequestException($"Email provider returned {(int)res.StatusCode}."); // body intentionally not included
     }
@@ -71,7 +74,9 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options) : IEmailSend
         msg.From.Add(MimeKit.MailboxAddress.Parse(o.From));
         msg.To.Add(MimeKit.MailboxAddress.Parse(m.To));
         msg.Subject = m.Subject;
-        msg.Body = new MimeKit.BodyBuilder { TextBody = m.Text, HtmlBody = m.Html }.ToMessageBody();
+        var body = new MimeKit.BodyBuilder { TextBody = m.Text, HtmlBody = m.Html };
+        if (m.Attachment is { } a) body.Attachments.Add(a.FileName, a.Content, MimeKit.ContentType.Parse(a.ContentType));
+        msg.Body = body.ToMessageBody();
 
         var security = o.SmtpSecurity.Trim().ToLowerInvariant() switch
         {
@@ -126,7 +131,8 @@ public sealed class OutboxEmailQueue(IServiceScopeFactory scopes, ILogger<Outbox
             // the organisation's own wording (subject prefix, closing paragraph, sign-off name), in the recipient's language
             var wording = db.EmailWordings.IgnoreQueryFilters().AsNoTracking().FirstOrDefault(x => x.TenantId == tid);
             message = AnnabaDigital.Application.Email.EmailWordingService.Apply(message, wording, lang);
-            db.OutboxEmails.Add(new OutboxEmail { TenantId = tid, ToAddress = message.To, Subject = message.Subject, Text = message.Text, Html = message.Html, CreatedAt = now, NextAttemptAt = now });
+            db.OutboxEmails.Add(new OutboxEmail { TenantId = tid, ToAddress = message.To, Subject = message.Subject, Text = message.Text, Html = message.Html, CreatedAt = now, NextAttemptAt = now,
+                AttachmentName = message.Attachment?.FileName, AttachmentType = message.Attachment?.ContentType, AttachmentContent = message.Attachment?.Content });
             db.SaveChanges();
             _signal.Release();
         }
@@ -183,9 +189,12 @@ public sealed class EmailDispatcherService(OutboxEmailQueue queue, IServiceScope
             try
             {
                 var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
-                await sender.SendAsync(new EmailMessage(row.ToAddress, row.Subject, row.Text, row.Html), ct);
+                await sender.SendAsync(new EmailMessage(row.ToAddress, row.Subject, row.Text, row.Html)
+                {
+                    Attachment = row is { AttachmentName: { } an, AttachmentContent: { } ac } ? new EmailAttachment(an, row.AttachmentType ?? "application/octet-stream", ac) : null,
+                }, ct);
                 await db.OutboxEmails.Where(x => x.Id == row.Id).ExecuteUpdateAsync(u => u
-                    .SetProperty(x => x.SentAt, DateTimeOffset.UtcNow).SetProperty(x => x.Text, "").SetProperty(x => x.Html, "").SetProperty(x => x.LastError, (string?)null), ct);
+                    .SetProperty(x => x.SentAt, DateTimeOffset.UtcNow).SetProperty(x => x.Text, "").SetProperty(x => x.Html, "").SetProperty(x => x.AttachmentContent, (byte[]?)null).SetProperty(x => x.LastError, (string?)null), ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception e)
@@ -195,7 +204,7 @@ public sealed class EmailDispatcherService(OutboxEmailQueue queue, IServiceScope
                 {
                     log.LogError("Giving up on email to {To} after {Attempts} attempts ({Error}).", row.ToAddress, row.Attempts, error);
                     await db.OutboxEmails.Where(x => x.Id == row.Id).ExecuteUpdateAsync(u => u
-                        .SetProperty(x => x.FailedAt, DateTimeOffset.UtcNow).SetProperty(x => x.Text, "").SetProperty(x => x.Html, "").SetProperty(x => x.LastError, error), ct);
+                        .SetProperty(x => x.FailedAt, DateTimeOffset.UtcNow).SetProperty(x => x.Text, "").SetProperty(x => x.Html, "").SetProperty(x => x.AttachmentContent, (byte[]?)null).SetProperty(x => x.LastError, error), ct);
                 }
                 else
                 {
@@ -377,10 +386,61 @@ public sealed class TicketAutoCloseWorker(IServiceScopeFactory scopes, IOptions<
                 if (visits > 0) log.LogInformation("Planned maintenance visits made: {Count}", visits);
                 var budgets = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.CostService>().RunBudgetAlertsAsync(stoppingToken);
                 if (budgets > 0) log.LogInformation("Budget alerts sent: {Count}", budgets);
+                var papers = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.VehicleService>().RunExpiryRemindersAsync(stoppingToken);
+                if (papers > 0) log.LogInformation("Vehicle document and licence reminders sent: {Count}", papers);
+                var guests = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.VisitService>().RunAsync(stoppingToken);
+                if (guests.NoShows + guests.Anonymised > 0) log.LogInformation("Visitors: {NoShows} no-shows, {Anonymised} anonymised", guests.NoShows, guests.Anonymised);
+                var post = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.MailService>().RunAsync(stoppingToken);
+                if (post.Reminded + post.Anonymised > 0) log.LogInformation("Mail: {Reminded} reminders, {Anonymised} anonymised", post.Reminded, post.Anonymised);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
             catch (Exception e) { log.LogError(e, "Ticket auto-close run failed"); }
             try { await Task.Delay(TimeSpan.FromMinutes(Math.Max(1, options.Value.IntervalMinutes)), stoppingToken); } catch (OperationCanceledException) { return; }
+        }
+    }
+}
+
+/// <summary>R3-2. Booking reminders, rooms released when nobody checked in, and approvals that came too late, every minute (those are minutes-sensitive, so
+/// this does not wait for the hourly scheduler). Uses the review scheduler's switches (<c>ReviewScheduler__*</c>); every item is claimed in one UPDATE.</summary>
+public sealed class BookingWorker(IServiceScopeFactory scopes, IOptions<ReviewSchedulerOptions> options, ILogger<BookingWorker> log) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!options.Value.Enabled) return;
+        try { await Task.Delay(TimeSpan.FromSeconds(options.Value.StartupDelaySeconds + 60), stoppingToken); } catch (OperationCanceledException) { return; }
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                using var scope = scopes.CreateScope();
+                var r = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.BookingService>().RunAsync(stoppingToken);
+                if (r.Reminded + r.Released + r.Expired > 0) log.LogInformation("Bookings: {Reminded} reminded, {Released} released (no check-in), {Expired} not approved in time", r.Reminded, r.Released, r.Expired);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
+            catch (Exception e) { log.LogError(e, "Booking run failed"); }
+            try { await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken); } catch (OperationCanceledException) { return; }
+        }
+    }
+}
+
+/// <summary>RPT-007: sends the scheduled reports that are due, every five minutes (same switches as the review scheduler).</summary>
+public sealed class ReportScheduleWorker(IServiceScopeFactory scopes, IOptions<ReviewSchedulerOptions> options, ILogger<ReportScheduleWorker> log) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!options.Value.Enabled) return;
+        try { await Task.Delay(TimeSpan.FromSeconds(options.Value.StartupDelaySeconds + 90), stoppingToken); } catch (OperationCanceledException) { return; }
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                using var scope = scopes.CreateScope();
+                var r = await scope.ServiceProvider.GetRequiredService<AnnabaDigital.Application.Helpdesk.ReportExportService>().RunDueAsync(stoppingToken);
+                if (r.Schedules > 0) log.LogInformation("Scheduled reports: {Schedules} run, {Sent} sent, {Skipped} skipped", r.Schedules, r.Sent, r.Skipped);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
+            catch (Exception e) { log.LogError(e, "Scheduled report run failed"); }
+            try { await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken); } catch (OperationCanceledException) { return; }
         }
     }
 }
