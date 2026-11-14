@@ -93,7 +93,7 @@ services:
       Email__SmtpPassword: ${SMTP_PASSWORD:-}
       Email__ResendApiKey: ${RESEND_API_KEY:-}
       Email__LogBodies: "false"
-      # Attachments (docs/30): bytes on a persistent volume; Production refuses to start without a virus scanner (ClamAV) unless you accept unscanned uploads on purpose.
+      # Attachments (docs/30): bytes on a persistent volume. There is no ClamAV service in this compose file; Production refuses to start without a scanner (CLAMAV_HOST pointing at an external clamd) unless ALLOW_UNSCANNED_UPLOADS=true.
       Storage__Path: /data/files
       Storage__ClamAvHost: ${CLAMAV_HOST:-}
       Storage__AllowUnscanned: ${ALLOW_UNSCANNED_UPLOADS:-false}
@@ -116,22 +116,7 @@ services:
       API_URL: http://api:8080
       API_PROXY_KEY: ${API_PROXY_KEY:?set API_PROXY_KEY}
 
-  # Virus scanner for attachments (set CLAMAV_HOST=clamav). Needs about 1.5 GB RAM; the first start downloads signatures (a few minutes), uploads fail until it is healthy.
-  clamav:
-    image: clamav/clamav:stable
-    restart: unless-stopped
-    expose: ["3310"]
-    volumes:
-      - annaba-digital-clamav:/var/lib/clamav
-    healthcheck:
-      test: ["CMD", "clamdcheck.sh"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 5m
-
 volumes:
   annaba-digital-files:
-  annaba-digital-clamav:
   annaba-digital-backups:
   annaba-digital-db:
