@@ -181,7 +181,18 @@ export async function run(d) {
   const vendor = {};
   for (const v of VENDORS) {
     let x = haveV.find((h) => h.name === v.name);
-    if (x) { vendor[v.name] = x; continue; }
+    if (x) {
+      vendor[v.name] = x;
+      const nDocs = Number(d.sql(`SELECT count(*) FROM vendor_documents WHERE vendor_id = '${x.id}'`).trim());
+      const wanted = v.docs.length + v.contracts.reduce((n, c) => n + (c.docs?.length ?? 0), 0);
+      if (nDocs === 0 && wanted > 0) {
+        const det = must(await hendra.get(`/api/vendors/${x.id}`), "vendor detail");
+        for (const c of v.contracts) for (const f of c.docs ?? []) { const cid = det.contracts?.find((k) => k.title === c.title)?.id; await soft(`document ${f}`, async () => must(await hendra.upload(`/api/vendors/${x.id}/documents${cid ? `?contractId=${cid}` : ""}`, [pdf(f)]), `document ${f}`)); }
+        for (const f of v.docs) await soft(`document ${f}`, async () => must(await hendra.upload(`/api/vendors/${x.id}/documents`, [pdf(f)]), `document ${f}`));
+        d.log(`  vendor documents added to ${v.name} (an earlier run was interrupted)`);
+      }
+      continue;
+    }
     const made = must(await hendra.post("/api/vendors", { name: v.name, services: v.services, email: v.email, phone: v.phone, website: v.website ?? null, address: v.address ?? null, taxId: v.taxId ?? null, notes: v.notes ?? null,
       contacts: v.contacts.map(([name, role, email, phone]) => ({ name, role, email, phone })), locationIds: v.sites.map((k) => L[k].id) }), `vendor ${v.name}`);
     for (const c of v.contracts) {
@@ -368,7 +379,18 @@ export async function run(d) {
   function workdayAnchor(n) { let s = T; let c = 0; while (c < n) { s = addDays(s, 1); if (!isWeekend(s)) c++; } return calm(s); }
 
   const teams = { eng: d.ctx.team.eng.id, ga: d.ctx.team.ga.id, clean: d.ctx.team.clean.id };
-  const havePlans = rows(must(await putri.get("/api/maintenance/plans?pageSize=100"), "plans"));
+  let havePlans = rows(must(await putri.get("/api/maintenance/plans?pageSize=100"), "plans"));
+  if (havePlans.length && Number(d.sql("SELECT count(*) FROM maintenance_visits").trim()) < 5) {
+    // set aside what the interrupted run left: the visit's ticket and work order are cancelled, the plans removed
+    const stray = d.sql("SELECT coalesce(ticket_id::text,'') || '|' || coalesce(work_order_id::text,'') FROM maintenance_visits").split(String.fromCharCode(10)).filter(Boolean).map((l) => l.split("|"));
+    for (const [tid, wid] of stray) {
+      if (wid) await soft("cancel stray work order", async () => must(await putri.post(`/api/work-orders/${wid}/action`, { action: "cancel", note: "Dibuat ulang oleh seed." }), "cancel work order"));
+      if (tid) await soft("cancel stray ticket", async () => must(await putri.post(`/api/tickets/${tid}/transition`, { action: "cancel", reason: "Dibuat ulang oleh seed." }), "cancel ticket"));
+    }
+    for (const p of havePlans) await soft(`remove plan ${p.name}`, async () => must(await putri.del(`/api/maintenance/plans/${p.id}`), "remove plan"));
+    havePlans = rows(must(await putri.get("/api/maintenance/plans?pageSize=100"), "plans"));
+    d.log(`  maintenance: ${stray.length} stray visit(s) and the unfinished plans of an interrupted run were set aside; plans are made again`);
+  }
   const planBody = (p, over = {}) => {
     const n = p.hist.length;
     return { name: p.name, instructions: p.instr, serviceId: svc(p.service).id, assetId: p.target.asset ? asset[p.target.asset].id : null, assetTypeId: p.target.type ? typeId[TY[p.target.type]] : null,
