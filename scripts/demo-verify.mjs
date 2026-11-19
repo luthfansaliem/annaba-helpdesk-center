@@ -22,7 +22,7 @@ const OUT = join(ROOT, "scripts/demo/out"); const SHOTS = join(OUT, "screens");
 const ONLY = opt("--only", null)?.split(",");
 const NO_SHOTS = args.includes("--no-shots");
 const PASSWORD = process.env.DEMO_PASSWORD ?? "Passw0rd!demo";
-if (!["localhost", "127.0.0.1"].includes(new URL(WEB).hostname)) { console.error("Local development helpdesk only."); process.exit(2); }
+if (!["localhost", "127.0.0.1"].includes(new URL(WEB).hostname) && !args.includes("--yes")) { console.error("Local development helpdesk only (pass --yes for a deployment that holds the demo data; DEMO_PASSWORD must be its demo password)."); process.exit(2); }
 
 const E = {
   admin: "sarah.wijaya@annabadigital.io", useradmin: "daniel.tan@annabadigital.io", auditor: "maya.putri@annabadigital.io", hendra: "hendra.kusuma@annabadigital.io", putri: "putri.anggraini@annabadigital.io",

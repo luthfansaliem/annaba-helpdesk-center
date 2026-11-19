@@ -131,7 +131,10 @@ export function connect({ api = process.env.DEMO_API ?? "http://localhost:5080",
      * Returns stdout; throws on SQL errors. The database is DEMO_DB (default annaba_demo; the orchestrator sets it from --db).
      */
     sql(text) {
-      const r = spawnSync("docker", ["exec", "-i", "annaba-digital-dev-db", "psql", "-U", "annaba_digital", "-d", process.env.DEMO_DB ?? "annaba_demo", "-v", "ON_ERROR_STOP=1", "-At", "-F", "|"], { input: text, encoding: "utf8" });
+      // PGHOST set (PGUSER/PGPASSWORD/PGDATABASE too): talk to that PostgreSQL with the psql client (the seed runner container of a deployment); otherwise the local dev container
+      const r = process.env.PGHOST
+        ? spawnSync("psql", ["-v", "ON_ERROR_STOP=1", "-At", "-F", "|"], { input: text, encoding: "utf8" })
+        : spawnSync("docker", ["exec", "-i", "annaba-digital-dev-db", "psql", "-U", "annaba_digital", "-d", process.env.DEMO_DB ?? "annaba_demo", "-v", "ON_ERROR_STOP=1", "-At", "-F", "|"], { input: text, encoding: "utf8" });
       if (r.status) throw new Error(`SQL failed: ${(r.stderr || "").slice(0, 400)}`);
       return r.stdout;
     },

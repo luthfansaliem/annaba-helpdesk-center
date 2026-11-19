@@ -145,7 +145,7 @@ export async function run(d) {
 
   // ================================================================ 2. e-mail wording (every later mail carries it)
   await reauth(admin);
-  await soft("e-mail wording", async () => must(await admin.put("/api/settings/email-wording", {
+  if (process.env.DEMO_KEEP_SETTINGS !== "1") await soft("e-mail wording", async () => must(await admin.put("/api/settings/email-wording", {
     senderName: "GA Helpdesk Annaba Digital", subjectPrefix: "[GA Helpdesk]",
     footerEn: "Thank you for using the GA Helpdesk. For urgent matters call the General Affairs desk on ext. 200.\nThis is an automatic message; replying by e-mail is also read by our team.",
     footerId: "Terima kasih telah menggunakan GA Helpdesk. Untuk hal mendesak, hubungi meja General Affairs di ext. 200.\nPesan ini dikirim otomatis; balasan lewat e-mail tetap kami baca.",
@@ -358,13 +358,15 @@ export async function run(d) {
     await reauth(admin);
     const old = must(await admin.post("/api/integrations/keys", { name: "Prototipe lama (tidak dipakai)", scopes: ["tickets.read"] }), "key old");
     must(await admin.post(`/api/integrations/keys/${old.key.id}/revoke`), "revoke old key");
-    const hookUrl = (path) => `http://127.0.0.1:${hookPort}${path}`;
+    // DEMO_NO_LOCAL_RECEIVER=1 (a real deployment, where webhooks must be https and may not point at this machine): the endpoints are created switched off, pointing at an https address nobody listens on
+    const NO_LOCAL = process.env.DEMO_NO_LOCAL_RECEIVER === "1";
+    const hookUrl = (path) => NO_LOCAL ? `https://example.com/annaba-demo${path}` : `http://127.0.0.1:${hookPort}${path}`;
     const hooks = [];
     for (const [url, description, events] of [
       [hookUrl("/hooks/chatops"), "Notifikasi ke kanal obrolan GA", ["ticket.created", "ticket.assigned"]],
       [hookUrl("/hooks/erp"), "Sinkronisasi status ke ERP Keuangan", ["ticket.status_changed", "ticket.commented", "workorder.completed"]],
       [hookUrl("/hooks/bms"), "Dasbor Monitoring Gedung", ["ticket.created", "ticket.status_changed"]],
-    ]) { await reauth(admin); hooks.push(must(await admin.post("/api/integrations/webhooks", { url, description, events, enabled: true }), `webhook ${description}`)); }
+    ]) { await reauth(admin); hooks.push(must(await admin.post("/api/integrations/webhooks", { url, description, events, enabled: !NO_LOCAL }), `webhook ${description}`)); }
     log(`  integrations: 3 API keys (1 revoked), 3 webhooks to a local receiver on port ${hookPort}`);
 
     // a service for requests that fit nowhere else (e-mail requests land here): made by the GA manager when the catalog has none
@@ -445,7 +447,7 @@ export async function run(d) {
     });
 
     // wait for the deliveries of the working endpoints
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < (NO_LOCAL ? 0 : 40); i++) {
       const list = rows(must(await admin.get("/api/integrations/webhooks"), "webhooks")); const ok = list.filter((w) => !w.url.includes("/hooks/erp"));
       const untried = Number(d.sql("SELECT count(*) FROM webhook_deliveries WHERE attempts = 0 AND delivered_at IS NULL AND failed_at IS NULL").trim());
       if (ok.every((w) => w.pending === 0) && untried === 0) break; await d.sleep(1500);
@@ -456,14 +458,14 @@ export async function run(d) {
     log(`  webhooks: ${received.length} deliveries answered by the local receiver; the ERP endpoint keeps answering 500 (${finalHooks.find((w) => w.url.includes("/hooks/erp"))?.pending ?? "?"} retrying, 1 abandoned)`);
     // the receiver is closed when this module ends: switch the endpoints off so that the tickets of the later modules (and of the demo itself) do not pile up failing deliveries.
     // The deliveries above stay in the log; the presenter switches an endpoint on again after starting a receiver (see the notes).
-    for (const w of finalHooks) await soft("switch webhook off", async () => must(await admin.put(`/api/integrations/webhooks/${w.id}`, { url: w.url, description: w.description, events: w.events, enabled: false, version: w.version }), "webhook off"));
+    for (const w of NO_LOCAL ? [] : finalHooks) await soft("switch webhook off", async () => must(await admin.put(`/api/integrations/webhooks/${w.id}`, { url: w.url, description: w.description, events: w.events, enabled: false, version: w.version }), "webhook off"));
   } finally { receiver.closeAllConnections?.(); await new Promise((r) => receiver.close(() => r())); }
 
   // ================================================================ 13. retention, legal hold, settings
   await reauth(admin);
-  await soft("system settings", async () => must(await admin.patch("/api/settings", { emailFrom: "GA Helpdesk Annaba Digital <no-reply@annabadigital.io>", auditRetentionDays: 730, invitationExpiryDays: 7 }), "settings"));
+  if (process.env.DEMO_KEEP_SETTINGS !== "1") await soft("system settings", async () => must(await admin.patch("/api/settings", { emailFrom: "GA Helpdesk Annaba Digital <no-reply@annabadigital.io>", auditRetentionDays: 730, invitationExpiryDays: 7 }), "settings"));
   const policy = { enabled: true, finishedTicketDays: 730, ticketAction: "anonymise", attachmentDays: 365, notificationDays: 180 };
-  await soft("retention", async () => {
+  if (process.env.DEMO_KEEP_SETTINGS !== "1") await soft("retention", async () => {
     await reauth(admin);
     must(await admin.put("/api/retention", policy), "retention policy");
     must(await admin.post("/api/retention/preview", { ...policy, finishedTicketDays: 90, attachmentDays: 60, notificationDays: 30 }), "retention preview");
@@ -611,10 +613,12 @@ export async function run(d) {
     const parts = [];
     // audit trail + security events of this module: the same mapping, in SQL (the audit table is append-only: its guard trigger is off for this one transaction only)
     const f = `to_timestamp(${now / 1000} - ${D / 1000} * power(greatest(0, 1 - (extract(epoch from COL) - ${T0 / 1000}) / ${span / 1000}), 1.25))`;
+    if (!process.env.DEMO_KEEP_AUDIT) {
     parts.push(`ALTER TABLE audit_events DISABLE TRIGGER audit_events_no_update;`);
     parts.push(`UPDATE audit_events SET ts = ${f.replace(/COL/g, "ts")} WHERE id > ${auditFrom} AND ts >= to_timestamp(${T0 / 1000});`);
     parts.push(`UPDATE audit_events SET ts = now() - interval '30 hours' + (id - ${auditFrom}) * interval '20 seconds' WHERE id > ${auditFrom} AND action IN ('directory.scim','directory.sync','directory.mapping_add');`);
     parts.push(`ALTER TABLE audit_events ENABLE TRIGGER audit_events_no_update;`);
+    }
     parts.push(`UPDATE security_events SET acknowledged_at = LEAST(now(), ${f.replace(/COL/g, "ts")} + interval '5 hours' * (1 + (extract(epoch from ts)::bigint % 7))) WHERE acknowledged_at IS NOT NULL AND ts >= '${secFrom}'::timestamptz;`);
     parts.push(`UPDATE security_events SET ts = ${f.replace(/COL/g, "ts")} WHERE ts >= '${secFrom}'::timestamptz;`);
     // people: created when they accepted; invitation dates to match; last sign-in and session times
@@ -629,7 +633,7 @@ export async function run(d) {
     parts.push(`UPDATE users SET created_at = now() - interval '${120} days' WHERE email IN ('${[d.CAST.admin, d.CAST.useradmin, d.CAST.auditor, d.CAST.rizky].map((c) => c.email).join("','")}') AND created_at > now() - interval '120 days';`);
     // sessions that the presenter should find: valid for days, with different addresses and times
     const ips = ["103.147.8.21", "36.90.112.7", "114.122.64.38", "182.253.67.9", "36.79.201.140", "202.67.40.12", "112.215.20.88", "103.147.8.22"];
-    parts.push(`UPDATE sessions SET remember = true, idle_expires_at = now() + interval '5 days', absolute_expires_at = now() + interval '20 days' WHERE revoked_at IS NULL AND tenant_id = '00000000-0000-7000-8000-000000000001';`);
+    parts.push(`UPDATE sessions SET remember = true, idle_expires_at = now() + interval '5 days', absolute_expires_at = now() + interval '20 days' WHERE revoked_at IS NULL AND tenant_id = '00000000-0000-7000-8000-000000000001' AND user_id IN (SELECT id FROM users WHERE email LIKE '%@annabadigital.io' OR email LIKE '%@sejukabadi.co.id');`);
     deviceClients.forEach(([, , sid], i) => {
       if (!sid) return;
       const hours = [0.2, 3, 26, 1.5, 30, 2.2, 52, 4, 6, 8, 20, 0.7][i % 12];

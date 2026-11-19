@@ -125,3 +125,29 @@ Setiap alur punya item di keadaan awal. Rinciannya (nama item persis dan hasil y
 - `scripts/demo/stack.mjs <nama> <port>` menyalakan satu API dengan database sendiri (dipakai saat mengembangkan modul secara paralel). `scripts/demo/lib.mjs` adalah pustaka bersama; `scripts/demo/BRIEF.md` aturan menulis modul.
 - Akun peran ditanam oleh `api/src/AnnabaDigital.Api/DemoPersonas.cs` (hanya Development).
 - Skrip lama `scripts/demo-data.mjs` (data ringan untuk tangkapan layar manual) tidak diubah.
+
+## 8. Demo di deployment (Coolify), bukan di laptop
+
+Dipakai untuk menaruh data demo di helpdesk yang sudah berjalan (di-uji lebih dulu pada API mode Production di lokal). Seed **menambah** data; tidak menimpa apa pun, dan akun yang sudah ada tidak disentuh.
+
+1. `deploy/docker-compose.coolify.yml` berisi layanan sementara `demo-seed` (Node + klien `psql` + skrip seed, tanpa port, hanya di jaringan compose). Hapus layanan itu (dan `deploy/Dockerfile.demo-seed`) setelah demo selesai: ia memegang kata sandi database di environment-nya.
+2. Karena Production menolak akun dev, akun peran dibuat lewat undangan (`scripts/demo/bootstrap-cast.mjs`): token di-hash lewat SQL, diterima lewat API, sehingga kata sandi di-hash dengan pepper deployment itu. Kata sandi demo dipilih saat menjalankan (`DEMO_PASSWORD`), bukan `Passw0rd!demo`.
+3. Di terminal container `demo-seed` (Coolify → Terminal):
+
+```bash
+DEMO_PASSWORD='<kata sandi demo>' DEMO_NO_LOCAL_RECEIVER=1 DEMO_KEEP_SETTINGS=1 DEMO_KEEP_AUDIT=1 \
+  nohup node scripts/demo-seed.mjs --yes --bootstrap --mute-mail > /tmp/seed.log 2>&1 &
+tail -f /tmp/seed.log
+```
+
+Saklar yang dipakai di deployment sungguhan:
+
+| Saklar | Fungsinya |
+| --- | --- |
+| `--bootstrap` | Membuat 14 akun peran lewat undangan |
+| `--mute-mail` | Memasang trigger sementara di `outbox_emails` yang menandai e-mail seed sebagai sudah ditangani, supaya tidak ada e-mail ke alamat fiktif lewat SMTP asli; trigger dilepas di akhir |
+| `DEMO_NO_LOCAL_RECEIVER=1` | Webhook dibuat nonaktif ke alamat https (production menolak http dan 127.0.0.1) |
+| `DEMO_KEEP_SETTINGS=1` | Tidak mengubah alamat pengirim, redaksi e-mail, dan kebijakan retensi organisasi |
+| `DEMO_KEEP_AUDIT=1` | Tidak mematikan trigger pelindung tabel audit; log audit bertanggal hari seed |
+
+Seed berjalan sekitar 4 menit. Untuk mengembalikan keadaan sebelum seed, pulihkan cadangan `pg_dump` terakhir sebelum seed dari volume `annaba-digital-backups` (layanan `backup` mengambilnya otomatis setiap kali stack dinyalakan).

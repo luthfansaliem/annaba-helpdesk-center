@@ -1,0 +1,8 @@
+# Seed runner for the product demo (docs/69-demo-guide.md §8). Not part of the normal stack: it only holds the seed scripts and the psql client
+# and sleeps; the seed is started by hand in its terminal. Build context: repository root.
+FROM node:22-alpine
+RUN apk add --no-cache postgresql-client tzdata
+ENV TZ=Asia/Jakarta NODE_ENV=production
+WORKDIR /app
+COPY scripts ./scripts
+CMD ["sleep", "infinity"]
