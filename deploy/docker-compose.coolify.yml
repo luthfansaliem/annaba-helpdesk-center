@@ -116,24 +116,6 @@ services:
       API_URL: http://api:8080
       API_PROXY_KEY: ${API_PROXY_KEY:?set API_PROXY_KEY}
 
-  # TEMPORARY, only for loading the product-demo data (docs/69 §8): an idle container with the seed scripts and the psql client, reachable only on the compose network.
-  # It holds the database password in its environment, so delete this service (and its Dockerfile) once the demo is over.
-  demo-seed:
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile.demo-seed
-    restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_healthy
-    environment:
-      DEMO_API: http://api:8080
-      DEMO_PROXY_KEY: ${API_PROXY_KEY}
-      DEMO_ORIGIN: ${API_ORIGIN}
-      PGHOST: db
-      PGUSER: annaba_digital
-      PGDATABASE: annaba_digital
-      PGPASSWORD: ${POSTGRES_PASSWORD}
 
 volumes:
   annaba-digital-files:

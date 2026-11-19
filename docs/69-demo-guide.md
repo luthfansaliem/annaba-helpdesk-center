@@ -130,7 +130,7 @@ Setiap alur punya item di keadaan awal. Rinciannya (nama item persis dan hasil y
 
 Dipakai untuk menaruh data demo di helpdesk yang sudah berjalan (di-uji lebih dulu pada API mode Production di lokal). Seed **menambah** data; tidak menimpa apa pun, dan akun yang sudah ada tidak disentuh.
 
-1. `deploy/docker-compose.coolify.yml` berisi layanan sementara `demo-seed` (Node + klien `psql` + skrip seed, tanpa port, hanya di jaringan compose). Hapus layanan itu (dan `deploy/Dockerfile.demo-seed`) setelah demo selesai: ia memegang kata sandi database di environment-nya.
+1. Penjalan seed adalah layanan sementara `demo-seed` (Node + klien `psql` + skrip seed, tanpa port, hanya di jaringan compose; `deploy/Dockerfile.demo-seed`). Layanan ini sudah **dihapus** dari `deploy/docker-compose.coolify.yml` setelah data dimuat karena ia memegang kata sandi database di environment-nya. Untuk menjalankan seed lagi, tambahkan kembali blok `demo-seed` dari commit `eb75bbb` (`git show eb75bbb:deploy/docker-compose.coolify.yml`), deploy, jalankan perintah di bawah, lalu hapus lagi.
 2. Karena Production menolak akun dev, akun peran dibuat lewat undangan (`scripts/demo/bootstrap-cast.mjs`): token di-hash lewat SQL, diterima lewat API, sehingga kata sandi di-hash dengan pepper deployment itu. Kata sandi demo dipilih saat menjalankan (`DEMO_PASSWORD`), bukan `Passw0rd!demo`.
 3. Di terminal container `demo-seed` (Coolify → Terminal):
 
