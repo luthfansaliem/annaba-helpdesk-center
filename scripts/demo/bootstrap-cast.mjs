@@ -5,6 +5,7 @@
  * People that already exist (by e-mail) are left alone, so real accounts are never touched. Needs SQL access (d.sql) and DEMO_PASSWORD.
  */
 import { createHash, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { CAST } from "./lib.mjs";
 
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
@@ -37,7 +38,21 @@ async function accept(d, token, name, ip) {
   if (!res.ok) throw new Error(`accepting the invitation of ${name} failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
 }
 
+/**
+ * A deployment that is older than the release the demo needs keeps the system roles as they were created (only the protected Super Admin role follows the code), so e.g. the
+ * GA Manager lacks the permissions of later slices. This ADDS the permissions the current definition of every system role has (system-roles.json, taken from the code); it never removes one.
+ */
+function alignSystemRoles(d) {
+  const defs = JSON.parse(readFileSync(new URL("./system-roles.json", import.meta.url), "utf8"));
+  for (const [key, perms] of Object.entries(defs)) {
+    const list = perms.map((p) => `'${p.replace(/'/g, "''")}'`).join(",");
+    const out = d.sql(`WITH ins AS (INSERT INTO role_permissions (role_id, permission_key, granted_at) SELECT r.id, p, now() FROM roles r, unnest(ARRAY[${list}]) AS p WHERE r.tenant_id = '00000000-0000-7000-8000-000000000001' AND r.is_system AND r.key = '${key}' ON CONFLICT DO NOTHING RETURNING permission_key) SELECT coalesce(string_agg(permission_key, ','), '') FROM ins`).trim();
+    if (out) d.log(`  roles: ${key} gained ${out.split(",").length} permission(s): ${out}`);
+  }
+}
+
 export async function bootstrapCast(d) {
+  alignSystemRoles(d);
   if (!process.env.DEMO_PASSWORD) throw new Error("Set DEMO_PASSWORD to the password the demo accounts should get (not the well-known development one).");
   const have = new Set(d.sql("SELECT email FROM users").split("\n").map((s) => s.trim()).filter(Boolean));
   const roles = Object.fromEntries(d.sql("SELECT key, id FROM roles WHERE tenant_id = '00000000-0000-7000-8000-000000000001'").split("\n").filter(Boolean).map((l) => l.split("|")));
