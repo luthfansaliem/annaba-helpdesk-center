@@ -35,6 +35,7 @@ public static class StartupChecks
         if (!Path.IsPathRooted(storage.Path)) problems.Add("Storage:Path must be an absolute path on a persistent volume (relative paths vanish with the container).");
         if (string.IsNullOrWhiteSpace(storage.ClamAvHost) && !storage.AllowUnscanned) problems.Add("Storage:ClamAvHost must point to a ClamAV daemon, or set Storage:AllowUnscanned=true to accept uploads without a virus scan on purpose.");
         if (api.SeedDevUsers) problems.Add("Api:SeedDevUsers must be false in Production.");
+        if (api.SeedDemoUsers) problems.Add("Api:SeedDemoUsers must be false in Production.");
         if (problems.Count > 0) throw new InvalidOperationException("Insecure production configuration: " + string.Join(" ", problems));
     }
 }

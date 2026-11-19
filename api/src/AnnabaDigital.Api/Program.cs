@@ -48,6 +48,8 @@ if (app.Services.GetRequiredService<IOptions<ApiOptions>>().Value.AutoMigrate)
     await Seeder.SeedReferenceDataAsync(db, DateTimeOffset.UtcNow);
     if (app.Services.GetRequiredService<IOptions<ApiOptions>>().Value.SeedDevUsers && app.Environment.IsDevelopment())
         await DevData.SeedAsync(scope.ServiceProvider);
+    if (app.Services.GetRequiredService<IOptions<ApiOptions>>().Value is { SeedDevUsers: true, SeedDemoUsers: true } && app.Environment.IsDevelopment())
+        await DemoPersonas.SeedAsync(scope.ServiceProvider);
     await Bootstrap.RunAsync(scope.ServiceProvider, app.Services.GetRequiredService<IOptions<ApiOptions>>().Value.BootstrapAdminEmail);
 }
 

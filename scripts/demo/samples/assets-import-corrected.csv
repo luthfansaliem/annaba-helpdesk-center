@@ -1,0 +1,16 @@
+﻿tag,name,type,serial,status,location_code,assigned_to_email,department,purchase_date,purchase_cost,warranty_end,vendor,notes,x_kapasitas_pk,x_inverter,x_ram_gb,x_media
+LTP-009,Laptop Lenovo ThinkPad E14 Gen 5 (karyawan baru),Laptop & IT equipment,PF4XM7Q3,stored,TWR-A-L5,,IT & General Affairs,2026-11-13,14850000,2029-11-12,PT Sentra Komputer Solusi,Disiapkan untuk karyawan baru bulan depan.,,,16,
+LTP-010,Laptop HP ProBook 440 G10,Laptop & IT equipment,5CD3281WQ7,stored,TWR-A-L5,,IT & General Affairs,2026-11-13,13250000,2029-11-12,PT Sentra Komputer Solusi,,,,16,
+IT-MON-03,Monitor Dell P2422H 24 inci,Laptop & IT equipment,CN0JLT21,in_use,TWR-A-L3,anita.rahmawati@annabadigital.io,Human Resources,2026-11-13,2490000,2029-11-12,PT Sentra Komputer Solusi,,,,,
+IT-MON-04,Monitor Dell P2422H 24 inci,Laptop & IT equipment,CN0JLT22,in_use,TWR-A-L3,rizky.pratama@annabadigital.io,Operations,2026-11-13,2490000,2029-11-12,PT Sentra Komputer Solusi,,,,,
+FRN-008,Kursi kerja ergonomis Ergotec ET-303 – Level 3,Furniture,,in_use,TWR-A-L3,,Operations,2026-10-30,1800000,,CV Karya Furnitur Jaya,,,,,
+FRN-009,Meja kerja staf 140 x 70 – HR,Furniture,,in_use,TWR-A-L3,,Human Resources,2026-10-30,2400000,,CV Karya Furnitur Jaya,,,,,
+AC-L5-003,AC Split Gree 1 PK – Ruang Arsip Level 5,Air conditioner,GR1PK-A5-30871,in_use,TWR-A-L5,,General Affairs,2026-10-15,5750000,2029-10-14,PT Sejuk Abadi,,1 PK,yes,,
+FRN-007,,,,in_use,TWR-A-L5,,,,,,,Dipindahkan ke Level 5 untuk ruang training; 4 unit terpakai.,,,,
+IT-MON-01,,,,in_use,TWR-A-L3,dimas.prakoso@annabadigital.io,Operations,,,,,Ditempatkan di meja Head of Operations.,,,,
+AC-BDG-03,AC Split Panasonic 1 PK – Pantry Bandung,Air conditioner,PNS1PK-BD-55311,in_use,BDG-1,,Cabang Bandung,2026-10-15,6250000,2029-10-14,PT Sejuk Abadi,,1 PK,yes,,
+APAR-L5-02,APAR CO2 5 kg – Level 5 (dekat ruang server),Fire extinguisher,PAS-C5-007,in_use,TWR-A-L5-SRV,,General Affairs,2026-11-07,2350000,,PT Proteksi Api Sentosa,Pengganti APAR powder di ruang server.,,,,CO2
+PRN-005,Printer Brother HL-L2385DW – Bandung,Printer & copier,U64187K9N,in_use,BDG-1,,Cabang Bandung,2026-11-01,3150000,2027-11-01,PT Sentra Komputer Solusi,,,,,
+,Dispenser Sanken Hot & Cool – Pantry Level 3,Furniture,,in_use,TWR-A-L3-PAN,,General Affairs,2026-11-10,1950000,,,Tanpa tag: akan diberi tag otomatis (AST-…).,,,,
+,Kamera CCTV Hikvision 4 MP – Gudang Pusat (tambahan),CCTV & access control,HK4MP-WH-1019,in_use,WH-1,,Gudang,2026-11-10,1650000,2028-11-09,PT Cakra Sekuriti Sistem,,,,,
+FAX-001,Mesin fax Panasonic KX-FP701,Printer & copier,,in_use,TWR-A-GF-REC,,Reception,2026-11-04,1250000,,PT Sentra Komputer Solusi,Mesin fax cadangan untuk resepsionis.,,,,

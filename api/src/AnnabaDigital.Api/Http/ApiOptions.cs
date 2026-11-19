@@ -8,6 +8,8 @@ public sealed class ApiOptions
     public string? ProxyKey { get; set; }
     public bool AutoMigrate { get; set; }
     public bool SeedDevUsers { get; set; }
+    /// <summary>Development only, on top of <see cref="SeedDevUsers"/>: also seed one demo person per helpdesk role (see DemoPersonas), for product demos.</summary>
+    public bool SeedDemoUsers { get; set; }
     /// <summary>Optional: when the database has no users, e-mail a super-admin invitation to this address (see Bootstrap).</summary>
     public string? BootstrapAdminEmail { get; set; }
     public string DevPassword { get; set; } = "Passw0rd!demo";
