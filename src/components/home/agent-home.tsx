@@ -6,7 +6,7 @@ import { Panel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { KpiCard, KpiGrid } from "@/components/insights/kpi";
 import { ChartCard, Donut } from "@/components/insights/charts";
-import { ChartLegend, LineChart } from "@/components/charts/line-chart";
+import { ChartLegend, LineChart, niceScale } from "@/components/charts/line-chart";
 import { ModuleEmpty } from "@/components/insights/module-empty";
 import { PriorityBadge, SlaBadge, statusLabel } from "@/components/tickets/status";
 import { Skeleton } from "@/components/ui/states";
@@ -14,7 +14,7 @@ import { get } from "@/lib/api/client";
 import type { OperationsReport, Paged, TicketListItem, TicketStatus, WorkOrderListItem } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@/lib/hooks";
-import { fmtDateTime } from "@/lib/format";
+import { fmtDateTime, fmtDay } from "@/lib/format";
 import { minutes, percent } from "@/components/reports/parts";
 import { t, td } from "@/i18n";
 
@@ -55,7 +55,7 @@ export function AgentHome() {
   const k = ops.data?.kpis;
   const first = user?.name.split(" ")[0] ?? "";
   const d = ops.data?.daily ?? [];
-  const top = Math.max(5, ...d.flatMap((x) => [x.created, x.resolved])); const max = Math.ceil(top / 5) * 5;
+  const scale = niceScale(Math.max(4, ...d.flatMap((x) => [x.created, x.resolved])), 2);
   const idx = d.length > 1 ? [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * (d.length - 1))) : [];
   const segs = (ops.data?.byStatus ?? []).map((s) => ({ label: statusLabel(s.key as TicketStatus), value: s.count, color: STATUS_COLORS[s.key] ?? "#94a3b8" }));
   return (
@@ -78,7 +78,7 @@ export function AgentHome() {
       </div>
       <div className="chart-grid wide-first">
         <ChartCard title={t("Created and resolved per day")} sub={t("Last 30 days")} action={<Link className="link-btn" href="/reports">{t("Operations")}</Link>}>
-          {d.length > 1 ? <><LineChart series={[{ name: t("Created"), color: "#0b62e6", data: d.map((x) => x.created) }, { name: t("Resolved"), color: "#16a37f", data: d.map((x) => x.resolved) }]} labels={idx.map((i) => d[i].day.slice(5))} max={max} ticks={[0, 0.5, 1].map((f) => Math.round(f * max))} label={t("Created and resolved tickets per day")} height={180} />
+          {d.length > 1 ? <><LineChart series={[{ name: t("Created"), color: "#0b62e6", data: d.map((x) => x.created) }, { name: t("Resolved"), color: "#16a37f", data: d.map((x) => x.resolved) }]} labels={idx.map((i) => fmtDay(d[i].day))} max={scale.max} ticks={scale.ticks} label={t("Created and resolved tickets per day")} height={180} />
             <ChartLegend items={[{ name: t("Created"), color: "#0b62e6" }, { name: t("Resolved"), color: "#16a37f" }]} /></> : <Skeleton h={180} />}
         </ChartCard>
         {can("workorders.read")

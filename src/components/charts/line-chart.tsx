@@ -15,6 +15,14 @@ function smooth(pts: [number, number][]) {
   return d;
 }
 
+/** A round scale for counts: the axis top and evenly spaced whole-number ticks (0, 10, 20, 30 rather than 0, 6, 13, 19, 25). */
+export function niceScale(peak: number, parts = 4): { max: number; ticks: number[] } {
+  const p = Math.max(1, peak); const raw = p / parts; const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw && Number.isInteger(s)) ?? Math.ceil(raw);
+  const max = step * Math.ceil(p / step);
+  return { max, ticks: Array.from({ length: max / step + 1 }, (_, i) => i * step) };
+}
+
 export function LineChart({ series, labels, max = 100, ticks = [0, 25, 50, 75, 100], label, width = 560, height = 200 }: {
   series: Series[]; labels: string[]; max?: number; ticks?: number[]; label?: string; width?: number; height?: number;
 }) {

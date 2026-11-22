@@ -7,13 +7,13 @@ import { Card, Panel } from "@/components/ui/card";
 import { QueryBoundary } from "@/components/query-boundary";
 import { DataTable, type Column } from "@/components/data/data-table";
 import { Require } from "@/components/page-guard";
-import { ChartLegend, LineChart } from "@/components/charts/line-chart";
+import { ChartLegend, LineChart, niceScale } from "@/components/charts/line-chart";
 import { DonutChart, DonutLegend } from "@/components/charts/donut-chart";
 import { BarList, Kpi, PeriodSelect, minutes, percent } from "@/components/reports/parts";
 import { PriorityBadge, SlaBadge, priorityLabel, statusLabel } from "@/components/tickets/status";
 import { get } from "@/lib/api/client";
 import type { AttentionItem, OperationsReport, Priority, TicketStatus } from "@/lib/api/types";
-import { fmtDateTime } from "@/lib/format";
+import { fmtDateTime, fmtDay } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
 import { t } from "@/i18n";
 
@@ -22,9 +22,8 @@ const statusColors: Record<string, string> = { pendingapproval: "#f59e0b", submi
 
 function Body({ r }: { r: OperationsReport }) {
   const k = r.kpis;
-  const labels = (() => { const d = r.daily; if (d.length < 2) return d.map((x) => x.day.slice(5)); const idx = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * (d.length - 1))); return idx.map((i) => d[i].day.slice(5)); })();
-  const max = Math.max(5, ...r.daily.flatMap((d) => [d.created, d.resolved]));
-  const top = Math.ceil(max / 5) * 5;
+  const labels = (() => { const d = r.daily; if (d.length < 2) return d.map((x) => fmtDay(x.day)); const idx = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * (d.length - 1))); return idx.map((i) => fmtDay(d[i].day)); })();
+  const scale = niceScale(Math.max(4, ...r.daily.flatMap((d) => [d.created, d.resolved])));
   const segs = r.byStatus.map((s) => ({ label: statusLabel(s.key as TicketStatus), value: s.count, color: statusColors[s.key] ?? "#94a3b8" })).filter((s) => s.value > 0);
   const cols: Column<AttentionItem>[] = [
     { key: "n", header: t("Ticket"), cell: (a) => <Link href={`/tickets/${a.id}`}><b>{a.number}</b> · {a.subject}</Link> },
@@ -46,15 +45,15 @@ function Body({ r }: { r: OperationsReport }) {
       <section className="kpis" aria-label={t("Flow and speed")}>
         <Kpi label={t("Created")} value={String(k.created)} note={t("in the period")} />
         <Kpi label={t("Resolved")} value={String(k.resolved)} note={t("in the period")} />
-        <Kpi label={t("Avg first response")} value={minutes(k.avgFirstResponseMinutes)} note={t("clock time, tickets created in the period")} />
-        <Kpi label={t("Avg resolution")} value={minutes(k.avgResolutionMinutes)} note={t("clock time, tickets resolved in the period")} />
+        <Kpi label={t("Avg first response")} value={minutes(k.avgFirstResponseMinutes)} note={t("nights and weekends included, tickets created in the period")} />
+        <Kpi label={t("Avg resolution")} value={minutes(k.avgResolutionMinutes)} note={t("nights and weekends included, tickets resolved in the period")} />
       </section>
 
       <section className="g3 charts">
         <Card className="panel" style={{ gridColumn: "span 2" }}>
           <h2 style={{ fontSize: 15, margin: "0 0 8px" }}>{t("Created and resolved per day")}</h2>
           {r.daily.length >= 2
-            ? <><LineChart series={[{ name: t("Created"), color: "#0b62e6", data: r.daily.map((d) => d.created) }, { name: t("Resolved"), color: "#16a37f", data: r.daily.map((d) => d.resolved) }]} labels={labels} max={top} ticks={[0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * top))} label={t("Created and resolved tickets per day")} />
+            ? <><LineChart series={[{ name: t("Created"), color: "#0b62e6", data: r.daily.map((d) => d.created) }, { name: t("Resolved"), color: "#16a37f", data: r.daily.map((d) => d.resolved) }]} labels={labels} max={scale.max} ticks={scale.ticks} label={t("Created and resolved tickets per day")} />
               <ChartLegend items={[{ name: t("Created"), color: "#0b62e6" }, { name: t("Resolved"), color: "#16a37f" }]} /></>
             : <p>{t("Today: {created} created, {resolved} resolved.", { created: r.daily[0]?.created ?? 0, resolved: r.daily[0]?.resolved ?? 0 })}</p>}
         </Card>

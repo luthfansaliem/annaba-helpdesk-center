@@ -3,6 +3,9 @@ import { formatLocale, getLang, t } from "@/i18n";
 export const fmtDate = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(formatLocale(), { day: "2-digit", month: "short", year: "numeric" }) : "—");
 export const fmtDateTime = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString(formatLocale(), { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : "—");
 
+/** A calendar day ("2026-11-24") as a short axis label in the reader's language: "24 Nov" (Indonesian: Oct → "Okt"). */
+export const fmtDay = (day: string) => new Date(`${day.slice(0, 10)}T00:00:00`).toLocaleDateString(formatLocale(), { day: "numeric", month: "short" });
+
 export function rel(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return t("Never");
   const m = Math.round((now - new Date(iso).getTime()) / 60000);

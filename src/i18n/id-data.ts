@@ -110,6 +110,7 @@ const idData: Record<string, string> = {
   "from {name}": "dari {name}",
   "{service} request": "Permintaan {service}",
   "Saved views…": "Tampilan tersimpan…",
+  "{n} unacknowledged security events": "{n} peristiwa keamanan belum ditinjau",
   "Waiting for your confirmation": "Menunggu konfirmasi Anda", "Check and confirm": "Periksa & konfirmasi",
 
   // ---- the API's most common validation messages (shown through api/client.ts)

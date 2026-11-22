@@ -81,7 +81,7 @@ Setiap alur punya item di keadaan awal. Rinciannya (nama item persis dan hasil y
 | Impor aset | hendra | Impor → `assets-import.csv` (1 baris salah) lalu `assets-import-corrected.csv` |
 | Permintaan perlengkapan → setuju → serah | rizky/lina → dimas → putri | Perlengkapan; 4 permintaan menunggu Dimas; 3 siap serah |
 | Back-order | hendra lalu putri | Terima Toner HP 05A di Gudang Pusat, lalu serahkan sisa permintaan Fajar |
-| Stock opname | putri | Stock opname Ground Floor yang terbuka (jangan memindahkan stok Ground Floor sebelumnya) |
+| Stock opname | putri | Stock opname Ground Floor yang terbuka |
 | Undangan, peran, akses, tinjauan | daniel, sarah | Lihat `scripts/demo/notes/admin.md` (15 alur, termasuk CSV siap tempel) |
 
 ## 5. Hal yang perlu diketahui sebelum demo
@@ -105,7 +105,7 @@ Setiap alur punya item di keadaan awal. Rinciannya (nama item persis dan hasil y
 - Log audit dan peristiwa e-mail masuk bertanggal hari seed untuk aksi baru; riwayat 85 hari ke belakang dibuat dengan mematikan sementara trigger pelindung tabel `audit_events` di database demo (set `DEMO_NO_BACKDATE=1` bila tidak mau).
 - Tiket perawatan terjadwal memakai nomor tiket pertama (GA-2026-000001 dst.), tiket permintaan bernomor lebih tinggi.
 - Aset AC-SRV-01 dan GEN-001 tampil sebagai "sering bermasalah" karena tiket perawatan terjadwal ikut dihitung.
-- Stock opname ditutup setelah ada pergerakan stok lain di tempat yang sama menggandakan koreksi (kejanggalan aplikasi). Jangan memindahkan stok Ground Floor sebelum stock opname-nya ditutup.
+- Stock opname mengambil angka "seharusnya" saat sebuah baris dihitung, jadi pergerakan stok lain di tempat yang sama selama stock opname terbuka tidak lagi menggandakan koreksi (diperbaiki 22 November 2026).
 
 ## 6. Isi data (ringkas)
 

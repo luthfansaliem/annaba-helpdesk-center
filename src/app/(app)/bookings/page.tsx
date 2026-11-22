@@ -91,8 +91,8 @@ function Bookings() {
             ) : (
               <>
                 <Field label={t("Place")} htmlFor="bk-place"><SelectInput id="bk-place" value={place} onChange={(e) => setPlace(e.target.value)} options={[{ value: "", label: t("Anywhere") }, ...(places.data ?? []).map((l) => ({ value: l.id, label: l.path }))]} /></Field>
-                {(kind === "room" || kind === "vehicle") && <Field label={t("At least … people")} htmlFor="bk-cap"><TextInput id="bk-cap" type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} /></Field>}
-                <Field label={t("With")} htmlFor="bk-feat"><SelectInput id="bk-feat" value={feature} onChange={(e) => setFeature(e.target.value)} options={[{ value: "", label: t("Anything") }, ...FEATURES.map((f) => ({ value: f, label: featureLabel(f) }))]} /></Field>
+                {(kind === "room" || kind === "vehicle") && <Field label={t("Minimum capacity")} htmlFor="bk-cap"><TextInput id="bk-cap" type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} /></Field>}
+                <Field label={t("Features")} htmlFor="bk-feat"><SelectInput id="bk-feat" value={feature} onChange={(e) => setFeature(e.target.value)} options={[{ value: "", label: t("Anything") }, ...FEATURES.map((f) => ({ value: f, label: featureLabel(f) }))]} /></Field>
               </>
             )}
           </div>

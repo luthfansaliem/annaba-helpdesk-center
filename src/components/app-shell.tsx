@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, BellRing, ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight, Lock, LogOut, Menu, Moon, Search, Sun, UserRound, X } from "lucide-react";
+import { BellRing, ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight, Lock, LogOut, Menu, Moon, Search, ShieldAlert, Sun, UserRound, X } from "lucide-react";
 import { Logo, LogoMark } from "./logo";
 import { Avatar, avatarUrl } from "./ui/avatar";
 import { Overlay } from "./ui/overlay";
@@ -231,12 +231,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button ref={opener} type="button" className="icon-btn menu-btn" aria-label={t("Open menu")} aria-expanded={mobile} onClick={() => setMobile(true)}><Menu size={18} /></button>
           <button type="button" className="search" onClick={() => setPalette(true)} aria-label={t("Search anything... ⌘ K (Ctrl or Command K)")}><Search size={16} /> <span>{t("Search anything...")}</span> <kbd>⌘ K</kbd></button>
           <div className="top-right">
-            <button type="button" className="theme-btn" aria-label={theme.resolved === "dark" ? "Switch to light mode" : "Switch to dark mode"} title={theme.resolved === "dark" ? t("Light mode") : t("Dark mode")} onClick={() => theme.set(theme.resolved === "dark" ? "light" : "dark")}>
+            <button type="button" className="theme-btn" aria-label={theme.resolved === "dark" ? t("Switch to light mode") : t("Switch to dark mode")} title={theme.resolved === "dark" ? t("Light mode") : t("Dark mode")} onClick={() => theme.set(theme.resolved === "dark" ? "light" : "dark")}>
               {theme.resolved === "dark" ? <Sun size={19} /> : <Moon size={19} />}
             </button>
-            <Link href="/notifications" className="bell" aria-label={t("{n} unread notifications", { n: notes })}><BellRing size={20} />{notes > 0 && <b>{notes > 99 ? "99+" : notes}</b>}</Link>
+            <Link href="/notifications" className="bell" aria-label={t("{n} unread notifications", { n: notes })} title={t("Notifications")}><BellRing size={20} />{notes > 0 && <b>{notes > 99 ? "99+" : notes}</b>}</Link>
             {can("security.read") && (
-              <Link href="/security-events" className="bell" aria-label={`${unack} unacknowledged security events`}><Bell size={20} />{unack > 0 && <b>{unack > 99 ? "99+" : unack}</b>}</Link>
+              <Link href="/security-events" className="bell security" aria-label={t("{n} unacknowledged security events", { n: unack })} title={t("Security events")}><ShieldAlert size={20} />{unack > 0 && <b>{unack > 99 ? "99+" : unack}</b>}</Link>
             )}
             <UserMenu />
           </div>
