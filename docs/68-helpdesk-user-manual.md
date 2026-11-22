@@ -1,6 +1,8 @@
 # 68 — Panduan Pengguna Annaba Helpdesk
 
-Diperbarui 12 November 2026. Ini manual lengkap untuk pengguna aplikasi. Versi PDF untuk dibagikan ada di `manual/Panduan-Pengguna-Annaba-Helpdesk.pdf`, dibuat dari berkas ini dengan `npm run manual:pdf`. Gambar layarnya diambil dengan `npm run manual:screens` dari helpdesk pengembangan yang berisi data contoh (`node scripts/demo-data.mjs`). Jalankan ulang keduanya setiap kali isi atau tampilan berubah.
+Diperbarui 22 November 2026. Ini manual lengkap untuk pengguna aplikasi. Versi PDF untuk dibagikan ada di `manual/Panduan-Pengguna-Annaba-Helpdesk.pdf`, dibuat dari berkas ini dengan `npm run manual:pdf`. Gambar layarnya diambil dengan `npm run manual:screens` dari helpdesk pengembangan yang berisi data demo (`node scripts/demo-seed.mjs`, lihat `69-demo-guide.md`), masing-masing dari akun peran yang dibahas. Jalankan ulang keduanya setiap kali isi atau tampilan berubah.
+
+Baru pertama kali memakai? Baca **Mulai cepat sesuai peran** di bab 2. Isinya lima langkah pertama untuk peran Anda.
 
 ## 1. Tentang Annaba Helpdesk
 
@@ -94,6 +96,34 @@ Di ponsel, menu dibuka dengan tombol garis tiga di kiri atas. Di komputer, **Ciu
 - Layar terkunci sendiri setelah beberapa menit tidak dipakai. Masukkan kata sandi untuk melanjutkan.
 - Untuk tindakan sensitif, misalnya mengubah peran atau menerapkan sinkronisasi direktori, aplikasi meminta kata sandi sekali lagi. Itu normal.
 - **Pribadi → Sesi & Perangkat** menampilkan di perangkat mana akun Anda sedang masuk. Cabut sesi yang tidak Anda kenali.
+
+### Memakai di ponsel
+
+Annaba Helpdesk dibuka lewat peramban ponsel, tanpa perlu mengunduh aplikasi dari toko aplikasi.
+
+1. Buka alamat helpdesk di Chrome (Android) atau Safari (iPhone), lalu masuk.
+2. Pasang ke layar utama supaya terbuka seperti aplikasi: di Chrome pilih menu **⋮ → Tambahkan ke layar utama**, di Safari pilih **Bagikan → Tambahkan ke Layar Utama**.
+3. Ketuk tombol garis tiga di kiri atas untuk membuka menu.
+
+Yang paling sering dipakai di ponsel:
+
+- **Lapor kerusakan lewat QR.** Pindai label QR pada aset (AC, genset, printer) dengan kamera ponsel. Halaman aset itu terbuka. Tekan **Laporkan masalah pada aset ini**, pilih layanan yang cocok, dan aset beserta lokasinya sudah terisi.
+- **Foto langsung dari kamera.** Saat melampirkan berkas, pilih kamera untuk memotret kerusakan.
+- **Mode lapangan untuk teknisi.** Buka **Service desk → Mode lapangan** selagi masih ada sinyal dan biarkan halamannya terbuka. Perintah kerja tetap bisa dikerjakan saat sinyal hilang, dan perubahan terkirim sendiri begitu sinyal kembali (lihat bab 5).
+
+### Mulai cepat sesuai peran
+
+Lima langkah pertama untuk setiap peran. Rinciannya ada di bab yang disebut.
+
+| Peran | Lima langkah pertama | Bab |
+| --- | --- | --- |
+| Karyawan | 1) Masuk dan aktifkan notifikasi yang Anda mau. 2) Cari jawaban di **Basis pengetahuan**. 3) Buat **Permintaan baru** lengkap dengan lokasi dan foto. 4) Pantau di **Permintaan saya**. 5) Setelah selesai, **Konfirmasi sudah beres** dan beri nilai. | 3 |
+| Atasan | 1) Buka **Persetujuan** setiap hari. 2) Buka permintaan untuk melihat rinciannya sebelum memutuskan. 3) **Setujui**, atau **Tolak** dengan alasan yang jelas. 4) Sebelum cuti, atur pendelegasian di **Persetujuan**. 5) Setujui juga permintaan perlengkapan tim Anda. | 4 |
+| GA Agent (teknisi) | 1) Buka **Antrean Tiket → Ditugaskan ke saya**. 2) Tekan **Mulai kerjakan** saat berangkat. 3) Isi daftar periksa, catat waktu, ambil foto sesudah. 4) Pakai **Mode lapangan** di area tanpa sinyal. 5) **Selesaikan** dengan catatan singkat untuk peminta. | 5 |
+| GA Supervisor | 1) Mulai hari dari tile **Berisiko** dan **Terlambat**. 2) Tugaskan yang **Belum ditugaskan**, sekaligus beberapa bila perlu. 3) Simpan filter favorit sebagai **Tampilan tersimpan**. 4) Setujui booking yang perlu persetujuan. 5) Serahkan perlengkapan di **Meja perlengkapan**. | 5, 8 |
+| GA Manager | 1) Selesaikan daftar **Mulai** di Pengaturan Helpdesk. 2) Sesuaikan katalog layanan, SLA, dan aturan penugasan. 3) Daftarkan aset, cetak label QR, dan buat rencana perawatan. 4) Pantau **Operasional**, **Laporan SLA**, dan **Laporan Biaya** setiap minggu. 5) Jadwalkan laporan terkirim lewat e-mail. | 6, 9, 10 |
+| Resepsionis | 1) Buka **Resepsionis** di awal hari. 2) Check-in tamu yang dijadwalkan atau datang langsung. 3) Check-out tamu yang pulang. 4) Catat paket masuk di **Ruang surat**; penerima diberi tahu otomatis. 5) Tandai paket yang sudah diambil. | 7 |
+| Administrator | 1) Hubungkan SSO dan direktori. 2) Undang pengguna atau sinkronkan dari HR. 3) Tetapkan peran. 4) Aktifkan MFA untuk peran penting. 5) Jadwalkan tinjauan akses dan periksa log audit. | 11 |
 
 ## 3. Untuk semua karyawan
 
