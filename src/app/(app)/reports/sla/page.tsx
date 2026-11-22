@@ -15,7 +15,7 @@ import type { BreachItem, Priority, SlaReport, SlaRow } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
 import { Bars, ChartCard } from "@/components/insights/charts";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 const tone = (p: number | null) => (p === null ? "gray" : p >= 90 ? "green" : p >= 70 ? "orange" : "red") as "gray" | "green" | "orange" | "red";
 
@@ -31,7 +31,7 @@ function rowCols(first: string, label?: (r: SlaRow) => string): Column<SlaRow>[]
 
 function Body({ r }: { r: SlaReport }) {
   const breachCols: Column<BreachItem>[] = [
-    { key: "n", header: t("Ticket"), cell: (b) => <><Link href={`/tickets/${b.id}`}><b>{b.number}</b> · {b.subject}</Link><br /><small>{b.serviceName}</small></> },
+    { key: "n", header: t("Ticket"), cell: (b) => <><Link href={`/tickets/${b.id}`}><b>{b.number}</b> · {b.subject}</Link><br /><small>{td(b.serviceName)}</small></> },
     { key: "r", header: t("What was missed"), cell: (b) => (b.reason === "first_response" ? t("First response") : t("Resolution")) },
     { key: "w", header: t("When"), cell: (b) => fmtDateTime(b.breachedAt) },
     { key: "s", header: t("Status"), cell: (b) => <TicketStatusBadge status={b.status} /> },

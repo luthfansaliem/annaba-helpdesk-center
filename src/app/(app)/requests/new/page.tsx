@@ -11,7 +11,7 @@ import { QueryBoundary } from "@/components/query-boundary";
 import { get } from "@/lib/api/client";
 import type { PortalCatalog, PortalCategory, PortalServiceItem } from "@/lib/api/types";
 import { useQuery } from "@/lib/hooks";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 /** Roots first, each followed by its sub-categories, so the page reads like the catalog admin sees it. */
 function ordered(cats: PortalCategory[]): { cat: PortalCategory; depth: number }[] {
@@ -22,7 +22,8 @@ function ordered(cats: PortalCategory[]): { cat: PortalCategory; depth: number }
 
 function Services({ catalog, asset }: { catalog: PortalCatalog; asset: string | null }) {
   const byCat = new Map<string, PortalServiceItem[]>();
-  for (const sv of catalog.services) byCat.set(sv.categoryId, [...(byCat.get(sv.categoryId) ?? []), sv]);
+  const shown = [...catalog.services].sort((a, b) => td(a.name).localeCompare(td(b.name)));   // alphabetical as people read the names
+  for (const sv of shown) byCat.set(sv.categoryId, [...(byCat.get(sv.categoryId) ?? []), sv]);
   const all = ordered(catalog.categories);
   const tone = new Map(all.map(({ cat }, i) => [cat.id, TONES[i % TONES.length]]));
   const groups = all.filter(({ cat }) => byCat.has(cat.id));
@@ -35,13 +36,13 @@ function Services({ catalog, asset }: { catalog: PortalCatalog; asset: string | 
           <section key={cat.id} aria-labelledby={`cat-${cat.id}`}>
             <div className="cat-h">
               <span className="ti" style={{ background: c.bg, color: c.fg }}><CatalogIcon name={cat.icon} size={16} /></span>
-              <div><h2 id={`cat-${cat.id}`} style={depth ? { fontSize: 14 } : undefined}>{cat.name}</h2>{cat.description && <p>{cat.description}</p>}</div>
+              <div><h2 id={`cat-${cat.id}`} style={depth ? { fontSize: 14 } : undefined}>{td(cat.name)}</h2>{cat.description && <p>{td(cat.description)}</p>}</div>
             </div>
             <div className="tiles">
               {(byCat.get(cat.id) ?? []).map((sv) => (
                 <Link key={sv.id} href={`/requests/new/${sv.id}${asset ? `?asset=${asset}` : ""}`} className="tile">
                   <span className="ti" style={{ background: c.bg, color: c.fg }}><CatalogIcon name={sv.icon ?? cat.icon} /></span>
-                  <div><b>{sv.name}</b>{sv.description && <small>{sv.description}</small>}</div>
+                  <div><b>{td(sv.name)}</b>{sv.description && <small>{td(sv.description)}</small>}</div>
                 </Link>
               ))}
             </div>
@@ -52,10 +53,20 @@ function Services({ catalog, asset }: { catalog: PortalCatalog; asset: string | 
   );
 }
 
+/** Services whose name, description or category (stored or translated) contain every word typed. */
+function search(c: PortalCatalog, term: string): PortalCatalog {
+  const words = term.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return c;
+  const catText = new Map(c.categories.map((x) => [x.id, `${x.name} ${td(x.name)}`]));
+  const hay = (sv: PortalServiceItem) => `${sv.name} ${td(sv.name)} ${sv.description ?? ""} ${td(sv.description) ?? ""} ${catText.get(sv.categoryId) ?? ""}`.toLowerCase();
+  return { ...c, services: c.services.filter((sv) => words.every((w) => hay(sv).includes(w))) };
+}
+
 function Catalog() {
   const [q, setQ] = useState(""); const term = useDeferredValue(q.trim());
   const about = useAboutAsset(useSearchParams().get("asset"));
-  const catalog = useQuery(() => get<PortalCatalog>("/api/portal/catalog", { q: term || undefined }), [term]);
+  // The whole catalog is small; it is searched here so a word matches the name people see (Indonesian for the starter catalog) as well as the stored one.
+  const catalog = useQuery(() => get<PortalCatalog>("/api/portal/catalog"), []);
   return (
     <>
       <PageHeader help="make-a-request" title={t("New request")} description={t("What do you need? Choose a service and tell us the details.")} />
@@ -64,7 +75,7 @@ function Catalog() {
         <label htmlFor="nr-q" style={{ display: "block", fontWeight: 700, color: "var(--navy)", marginBottom: 8 }}>{t("Search services")}</label>
         <div className="ask"><Search size={18} aria-hidden /><input id="nr-q" data-autofocus placeholder={t("e.g. air conditioning, meeting room, visitor")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
       </section>
-      <QueryBoundary q={catalog} rows={4}>{(c) => <Services catalog={c} asset={about?.id ?? null} />}</QueryBoundary>
+      <QueryBoundary q={catalog} rows={4}>{(c) => <Services catalog={search(c, term)} asset={about?.id ?? null} />}</QueryBoundary>
     </>
   );
 }

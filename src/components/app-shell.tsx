@@ -14,9 +14,16 @@ import { get, post } from "@/lib/api/client";
 import type { Paged, UserListItem } from "@/lib/api/types";
 import { useDebounced } from "@/lib/hooks";
 import { useTheme } from "@/lib/theme";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 /** Details pages keep their parent highlighted. */
+/** The name of a system role as people say it; a role an organisation made itself shows its key, readable. */
+const ROLE_NAMES: Record<string, string> = {
+  super_admin: "Super Admin", user_admin: "User Admin", security_auditor: "Security Auditor", ga_manager: "GA Manager", ga_supervisor: "GA Supervisor",
+  ga_agent: "GA Agent", receptionist: "Receptionist", driver: "Driver", vendor: "Vendor", user: "Employee",
+};
+export const roleLabel = (key?: string) => { const k = key ?? "user"; return ROLE_NAMES[k] ? t(ROLE_NAMES[k]) : k.replace(/_/g, " "); };
+
 export const activeHref = (p: string) => (/^\/users\/(?!all$|invitations$)[^/]+/.test(p) ? "/users/all" : p.startsWith("/roles/") ? "/roles" : p);
 
 const badgeSum = (nodes: NavNode[], badges: Record<string, number>): number => nodes.reduce((t, n) => t + (isGroup(n) ? badgeSum(n.children, badges) : badges[n.href] ?? 0), 0);
@@ -97,7 +104,7 @@ function UserMenu() {
     <div className="user-menu" ref={ref}>
       <button type="button" className="user" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         <Avatar name={user.name} size={36} i={1} src={avatarUrl(user.id, user.avatarVersion)} />
-        <div className="user-text"><strong>{user.name}</strong><small>{user.roles[0]?.replace(/_/g, " ") ?? "user"}</small></div>
+        <div className="user-text"><strong>{user.name}</strong><small>{roleLabel(user.roles[0])}</small></div>
         <ChevronDown size={16} />
       </button>
       {open && (
@@ -198,7 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {compact ? <LogoMark size={30} /> : <Logo />}
           <button type="button" className="icon-btn sb-close" aria-label={t("Close menu")} onClick={() => setMobile(false)}><X size={16} /></button>
         </div>
-        {!compact && user?.tenantName && <div className={cn("tenant-chip", user.actingTenant && "support")} title={user.actingTenant ? t("Support mode: the organisation you are administering") : t("Your organisation")}>{user.actingTenant ?? user.tenantName}</div>}
+        {!compact && user?.tenantName && <div className={cn("tenant-chip", user.actingTenant && "support")} title={user.actingTenant ? t("Support mode: the organisation you are administering") : t("Your organisation")}>{td(user.actingTenant ?? user.tenantName)}</div>}
         <nav aria-label={t("Main navigation")}>
           {compact
             ? tree.map((n) => {

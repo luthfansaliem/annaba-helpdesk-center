@@ -5,6 +5,7 @@ using AnnabaDigital.Application.Common;
 using AnnabaDigital.Application.Email;
 using AnnabaDigital.Domain;
 using AnnabaDigital.Domain.Entities;
+using AnnabaDigital.Domain.Forms;
 
 namespace AnnabaDigital.Application.Helpdesk;
 
@@ -17,7 +18,10 @@ public sealed record SaveApprovalPolicyRequest(ApprovalStepDef[]? Steps, Guid? F
 // ---- decisions
 public sealed record DecideRequest(bool Approve, string? Comment);
 public sealed record ReassignRequest(Guid? ToUserId, string? Note);
-public sealed record MyApprovalItem(Guid Id, Guid TicketId, string TicketNumber, string TicketSubject, string ServiceName, string? RequesterName, int StepNo, string StepName, string Status, string? Comment, DateTimeOffset CreatedAt, DateTimeOffset? DecidedAt, string? OnBehalfOfName = null);
+/// <summary>One decision in the approver's inbox. While it waits, it also carries what is needed to decide without opening the request:
+/// the description, the place and the form's answers (files left out).</summary>
+public sealed record MyApprovalItem(Guid Id, Guid TicketId, string TicketNumber, string TicketSubject, string ServiceName, string? RequesterName, int StepNo, string StepName, string Status, string? Comment, DateTimeOffset CreatedAt, DateTimeOffset? DecidedAt, string? OnBehalfOfName = null,
+    string? Description = null, string? LocationName = null, IReadOnlyList<TicketAnswer>? Answers = null);
 public sealed record TicketApprovalItem(Guid Id, int StepNo, string StepName, string Rule, Guid ApproverId, string ApproverName, string Status, string? Comment, DateTimeOffset? DecidedAt, string? DecidedVia, string? OnBehalfOfName = null);
 public sealed record ApprovalLinkInfo(string TicketNumber, string Subject, string? Description, string ServiceName, string? RequesterName, string StepName, string ApproverName, DateTimeOffset ExpiresAt);
 public sealed record ApprovalLinkResult(string Decision, string TicketNumber);
@@ -379,11 +383,15 @@ public sealed class TicketApprovalService(IAppDb db, IClock clock, AuditWriter a
             .Select(a => new
             {
                 a.Id, a.TicketId, a.StepNo, a.StepName, a.Status, a.Comment, a.CreatedAt, a.DecidedAt, For = db.Users.Where(u => u.Id == a.OnBehalfOfId).Select(u => u.Name).FirstOrDefault(),
-                Ticket = db.Tickets.Where(t => t.Id == a.TicketId).Select(t => new { t.Number, t.Subject, t.ServiceName, t.RequesterId }).FirstOrDefault(),
+                Ticket = db.Tickets.Where(t => t.Id == a.TicketId).Select(t => new { t.Number, t.Subject, t.ServiceName, t.RequesterId, t.Description, t.ServiceId, t.FormVersion, t.AnswersJson, Location = db.Locations.Where(l => l.Id == t.LocationId).Select(l => l.Name).FirstOrDefault() }).FirstOrDefault(),
             }).ToListAsync(ct);
         var ids = rows.Select(r => r.Ticket?.RequesterId).Where(i => i != null).Select(i => i!.Value).Distinct().ToList();
         var names = await db.Users.AsNoTracking().Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Name, ct);
-        return [.. rows.Where(r => r.Ticket is not null).Select(r => new MyApprovalItem(r.Id, r.TicketId, r.Ticket!.Number, r.Ticket.Subject, r.Ticket.ServiceName, names.GetValueOrDefault(r.Ticket.RequesterId), r.StepNo, r.StepName, Lower(r.Status), r.Comment, r.CreatedAt, r.DecidedAt, r.For))];
+        var answers = new Dictionary<Guid, IReadOnlyList<TicketAnswer>>();
+        foreach (var r in rows.Where(r => r.Ticket is not null && r.Status == ApprovalStatus.Pending))   // only what still waits needs the details
+            answers[r.Id] = [.. (await TicketAnswers.BuildAsync(db, r.Ticket!.ServiceId, r.Ticket.FormVersion, r.Ticket.AnswersJson, ct)).Where(x => x.Type != FieldTypes.File)];
+        return [.. rows.Where(r => r.Ticket is not null).Select(r => new MyApprovalItem(r.Id, r.TicketId, r.Ticket!.Number, r.Ticket.Subject, r.Ticket.ServiceName, names.GetValueOrDefault(r.Ticket.RequesterId), r.StepNo, r.StepName, Lower(r.Status), r.Comment, r.CreatedAt, r.DecidedAt, r.For,
+            r.Status == ApprovalStatus.Pending ? r.Ticket.Description : null, r.Status == ApprovalStatus.Pending ? r.Ticket.Location : null, answers.GetValueOrDefault(r.Id)))];
     }
 
     public async Task<int> PendingCountAsync(Guid userId, CancellationToken ct = default) => await db.TicketApprovals.CountAsync(a => a.ApproverId == userId && a.Status == ApprovalStatus.Pending, ct);

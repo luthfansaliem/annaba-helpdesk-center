@@ -3,7 +3,7 @@
  * Takes the screenshots for the user manual (docs/68-helpdesk-user-manual.md) from a running DEVELOPMENT helpdesk with demo data, in Indonesian.
  *
  *   npm run dev & npm run api:run           # API on :5080, web on :3000, dev accounts seeded (Development only)
- *   node scripts/demo-data.mjs              # believable demo data
+ *   node scripts/demo-seed.mjs              # the demo cast and their data (docs/69-demo-guide.md); each picture is taken as the persona the manual chapter is about
  *   node scripts/capture-manual-screens.mjs [--web http://localhost:3000] [--text <folder>]
  *
  * Signs in as the seeded dev accounts, switches them to Indonesian for the run (and back afterwards), and writes docs/manual/NN-*.png.
@@ -22,7 +22,7 @@ const WEB = opt("--web", "http://localhost:3000").replace(/\/$/, "");
 const TEXT = opt("--text", null);
 const OUT = join(ROOT, "docs/manual");
 const PASSWORD = process.env.DEMO_PASSWORD ?? "Passw0rd!demo";
-const STAFF = "sarah.wijaya@annabadigital.io", EMPLOYEE = "rizky.pratama@annabadigital.io";
+const STAFF = "sarah.wijaya@annabadigital.io", PUTRI = "putri.anggraini@annabadigital.io", HENDRA = "hendra.kusuma@annabadigital.io", AGUS = "agus.setiawan@annabadigital.io", SINTA = "sinta.maharani@annabadigital.io", DIMAS = "dimas.prakoso@annabadigital.io", EMPLOYEE = "rizky.pratama@annabadigital.io";
 if (!["localhost", "127.0.0.1"].includes(new URL(WEB).hostname)) { console.error("Screenshots are taken from a local development helpdesk only."); process.exit(2); }
 
 /** What to capture: file name, who, which page, and optionally what to do before the picture (open a dialog, pick a row). */
@@ -34,18 +34,18 @@ const SHOTS = [
   { file: "05-pemesanan", who: EMPLOYEE, path: "/bookings" },
   { file: "09-minta-perlengkapan", who: EMPLOYEE, path: "/supplies", then: async (p) => { await p.getByRole("button", { name: "Minta perlengkapan" }).first().click(); await p.getByRole("dialog").waitFor(); } },
   { file: "10-pengaturan-notifikasi", who: EMPLOYEE, path: "/notifications/settings" },
-  { file: "12-persetujuan", who: STAFF, path: "/approvals" },
-  { file: "13-antrean-tiket", who: STAFF, path: "/tickets" },
-  { file: "14-detail-tiket", who: STAFF, path: "/tickets", then: async (p) => { await p.locator("a[href^='/tickets/']", { hasText: "Air conditioning too warm" }).first().click(); await p.waitForURL(/\/tickets\/[0-9a-f-]{36}/); } },
-  { file: "16-detail-perintah-kerja", who: STAFF, path: "/work-orders", then: async (p) => { await p.locator("a[href^='/work-orders/']:not([href$='/field'])").first().click(); await p.waitForURL(/\/work-orders\/[0-9a-f-]{36}/); } },
-  { file: "17-mode-lapangan", who: STAFF, path: "/work-orders/field" },
-  { file: "18-aset", who: STAFF, path: "/assets" },
-  { file: "20-resepsionis", who: STAFF, path: "/reception" },
-  { file: "22-inventaris", who: STAFF, path: "/inventory" },
-  { file: "23-meja-perlengkapan", who: STAFF, path: "/supplies" },
-  { file: "24-operasional", who: STAFF, path: "/reports" },
-  { file: "25-ekspor-laporan", who: STAFF, path: "/reports/schedules" },
-  { file: "26-mulai", who: STAFF, path: "/setup/start" },
+  { file: "12-persetujuan", who: DIMAS, path: "/approvals" },
+  { file: "13-antrean-tiket", who: PUTRI, path: "/tickets" },
+  { file: "14-detail-tiket", who: PUTRI, path: "/tickets", then: async (p) => { await p.locator("a[href^='/tickets/']", { hasText: "Suhu server room" }).first().click(); await p.waitForURL(/\/tickets\/[0-9a-f-]{36}/); } },
+  { file: "16-detail-perintah-kerja", who: AGUS, path: "/work-orders", then: async (p) => { await p.locator("a[href^='/work-orders/']:not([href$='/field'])").first().click(); await p.waitForURL(/\/work-orders\/[0-9a-f-]{36}/); } },
+  { file: "17-mode-lapangan", who: AGUS, path: "/work-orders/field" },
+  { file: "18-aset", who: HENDRA, path: "/assets" },
+  { file: "20-resepsionis", who: SINTA, path: "/reception" },
+  { file: "22-inventaris", who: HENDRA, path: "/inventory" },
+  { file: "23-meja-perlengkapan", who: PUTRI, path: "/supplies" },
+  { file: "24-operasional", who: HENDRA, path: "/reports" },
+  { file: "25-ekspor-laporan", who: HENDRA, path: "/reports/schedules" },
+  { file: "26-mulai", who: HENDRA, path: "/setup/start" },
   { file: "29-direktori", who: STAFF, path: "/admin/directory" },
 ];
 

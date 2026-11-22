@@ -7,7 +7,7 @@ import type { FormField, UploadedFile } from "@/lib/api/types";
 import { messageOf } from "@/lib/api/client";
 import { FILE_ACCEPT, MAX_FILE_BYTES, fmtSize } from "@/lib/files";
 import { isVisible } from "@/lib/forms";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 export type FormValues = Record<string, unknown>;
 
@@ -92,8 +92,8 @@ export function DynamicForm({ fields, values, onChange, errors = {}, locations =
       {visible.length === 0 && <p className="tab-placeholder">{t("This form has no questions yet.")}</p>}
       {visible.map((f) => {
         const id = `${idPrefix}-${f.key}`; const v = values[f.key]; const err = errors[f.key];
-        const label = f.label || f.key;
-        const help = f.help ? <small className="sub" id={`${id}-help`}>{f.help}</small> : null;
+        const label = td(f.label) || f.key;
+        const help = f.help ? <small className="sub" id={`${id}-help`}>{td(f.help)}</small> : null;
         const described = f.help ? { "aria-describedby": `${id}-help` } : {};
         switch (f.type) {
           case "long_text":
@@ -105,7 +105,7 @@ export function DynamicForm({ fields, values, onChange, errors = {}, locations =
           case "datetime":
             return <Field key={f.key} label={label} htmlFor={id} required={f.required} error={err}><TextInput id={id} type="datetime-local" value={(v as string) ?? ""} onChange={(e) => set(f.key, e.target.value)} {...described} />{help}</Field>;
           case "select":
-            return <Field key={f.key} label={label} htmlFor={id} required={f.required} error={err}><SelectInput id={id} value={(v as string) ?? ""} onChange={(e) => set(f.key, e.target.value)} placeholder={t("Choose…")} options={f.options ?? []} {...described} />{help}</Field>;
+            return <Field key={f.key} label={label} htmlFor={id} required={f.required} error={err}><SelectInput id={id} value={(v as string) ?? ""} onChange={(e) => set(f.key, e.target.value)} placeholder={t("Choose…")} options={(f.options ?? []).map((o) => ({ ...o, label: td(o.label) }))} {...described} />{help}</Field>;
           case "multi_select": {
             const picked = (Array.isArray(v) ? v : []) as string[];
             return (
@@ -113,7 +113,7 @@ export function DynamicForm({ fields, values, onChange, errors = {}, locations =
                 <legend style={{ fontWeight: 700, fontSize: 12, padding: 0 }}>{label}{f.required && <> <em aria-hidden>*</em></>}</legend>
                 {(f.options ?? []).map((o) => (
                   <label key={o.value} className="row" style={{ gap: 8, padding: "4px 0" }}>
-                    <Checkbox checked={picked.includes(o.value)} onChange={(e) => set(f.key, e.target.checked ? [...picked, o.value] : picked.filter((x) => x !== o.value))} /> {o.label}
+                    <Checkbox checked={picked.includes(o.value)} onChange={(e) => set(f.key, e.target.checked ? [...picked, o.value] : picked.filter((x) => x !== o.value))} /> {td(o.label)}
                   </label>
                 ))}
                 {help}{err && <p className="field-error" role="alert">{err}</p>}

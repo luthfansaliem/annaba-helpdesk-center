@@ -1,3 +1,5 @@
+import idData from "./id-data";
+
 /** English text → Bahasa Indonesia. A missing entry shows the English text (see i18n/index.ts). Placeholders like {name} are kept as they are. */
 const id: Record<string, string> = {
   // ---- navigation
@@ -2450,4 +2452,6 @@ const id: Record<string, string> = {
   "Connect": "Hubungkan",
   "In Teams, add the Workflows template “Post to a chat when a webhook request is received” and paste its URL here.": "Di Teams, tambahkan template Workflows “Post to a chat when a webhook request is received” lalu tempel URL-nya di sini.",
 };
+// Text that comes from data (starter catalog, system activity lines, role names): kept apart because it mirrors the API.
+for (const [en, tr] of Object.entries(idData)) id[en] ??= tr;
 export default id;

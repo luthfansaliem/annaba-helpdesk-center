@@ -39,6 +39,17 @@ h1,h2,h3{color:var(--navy);letter-spacing:-.02em}
 .btn.danger-o{background:var(--red-50);border-color:var(--err-line);color:var(--red-ink)}
 .btn.danger{background:#f4694f;border-color:#f4694f;color:#fff}
 .btn.sm{height:32px;padding:0 12px}
+/* A button whose label is data of any length (an article title): it wraps instead of widening the page. */
+.btn.wrap{white-space:normal;height:auto;min-height:32px;padding-top:6px;padding-bottom:6px;text-align:left;justify-content:flex-start;max-width:100%;overflow-wrap:anywhere}
+/* Approval inbox: the request with what is needed to decide (who, where, main answers). */
+.approval-context{display:flex;flex-direction:column;gap:4px;min-width:0}
+.approval-context small{color:var(--muted)}
+.approval-context p{margin:2px 0 0;color:var(--ink-mid);overflow-wrap:anywhere}
+.approval-context dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px;margin:4px 0 0;font-size:12.5px}
+.approval-context dl div{display:contents}
+.approval-context dt{color:var(--muted)}
+.approval-context dd{margin:0;color:var(--text);overflow-wrap:anywhere}
+@media (max-width:560px){.approval-context dl{grid-template-columns:1fr}.approval-context dd{margin-bottom:4px}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600}
 .pill i{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
@@ -312,7 +323,7 @@ td{padding:9px 12px;border-top:1px solid var(--line);font-size:13px;vertical-ali
 .state-ic.ok{background:var(--green-50);color:var(--green)}.state-ic.warn,.state-ic.lock{background:var(--orange-50);color:var(--orange-ink)}.state-ic.err{background:var(--red-50);color:var(--red)}
 .state-box{text-align:center;padding:40px 20px;max-width:460px;margin:0 auto}.state-box h3{font-size:18px;margin-bottom:6px}.state-box p{color:var(--muted);margin-bottom:16px;line-height:1.6}
 .state-box code,.panel code{background:var(--tint);border-radius:5px;padding:1px 6px;font-size:12px}
-.stack{display:grid;gap:10px}.center{text-align:center}.mt{margin-top:16px}
+.stack{display:grid;gap:10px;grid-template-columns:minmax(0,1fr)}.center{text-align:center}.mt{margin-top:16px}
 .proto-hint{margin-top:22px;border:1px dashed var(--line-2);background:var(--hover);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--ink-strong)}
 .proto-hint b{color:var(--navy)}.proto-hint .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .proto-hint .chips button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 9px;font-size:12px}.proto-hint .chips button:hover{background:var(--blue-50)}

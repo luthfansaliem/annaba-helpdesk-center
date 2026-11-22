@@ -11,7 +11,7 @@ import { ApiError, get, messageOf, post } from "@/lib/api/client";
 import type { ApprovalLinkInfo } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 /**
  * `/approve?token=…` — decide a request from the e-mail, without signing in. The token is the credential: bound to one person and one step, single use, expiring.
@@ -56,7 +56,7 @@ function Approve() {
       {alert && <div className="form-alert err" role="alert">{alert}</div>}
       <dl className="stack" style={{ margin: "0 0 16px" }}>
         <div><dt><b>{info.ticketNumber}</b></dt><dd style={{ margin: 0 }}>{info.subject}</dd></div>
-        <div><dt><b>{t("Service")}</b></dt><dd style={{ margin: 0 }}>{info.serviceName}</dd></div>
+        <div><dt><b>{t("Service")}</b></dt><dd style={{ margin: 0 }}>{td(info.serviceName)}</dd></div>
         <div><dt><b>{t("Requested by")}</b></dt><dd style={{ margin: 0 }}>{info.requesterName ?? "—"}</dd></div>
         {info.description && <div><dt><b>{t("Details")}</b></dt><dd style={{ margin: 0, whiteSpace: "pre-wrap" }}>{info.description}</dd></div>}
         <div><dt><b>{t("Step")}</b></dt><dd style={{ margin: 0 }}>{info.stepName}</dd></div>

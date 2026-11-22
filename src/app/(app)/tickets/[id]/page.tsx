@@ -17,34 +17,31 @@ import { LegalHoldPanel } from "@/components/tickets/legal-hold";
 import { TicketWorkOrdersPanel } from "@/components/workorders/ticket-work-orders";
 import { RatingPanel } from "@/components/tickets/rating";
 import { del, get, messageOf, patch, post } from "@/lib/api/client";
-import type { AssetPick, AssigneeOption, AttachmentItem, PortalLocation, Priority, TeamItem, TicketAction, TicketAnswer, TicketDetail, TicketEvent } from "@/lib/api/types";
+import type { AssetPick, AssigneeOption, AttachmentItem, PortalLocation, Priority, TeamItem, TicketAction, TicketDetail, TicketEvent } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { FILE_ACCEPT, MAX_FILE_BYTES, fmtSize, uploadFile } from "@/lib/files";
 import { fmtMinutes } from "@/lib/duration";
 import { useQuery } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { useRun } from "@/lib/use-run";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
+import { eventText } from "@/components/tickets/event-text";
+import { answerText } from "@/lib/forms";
 
 const NEEDS_REASON: TicketAction[] = ["hold", "cancel", "reopen"];
 const reasonLabel = (a: TicketAction) => ({ hold: t("Why is it on hold?"), cancel: t("Why are you cancelling?"), reopen: t("Why does it need to be reopened?") } as Record<string, string>)[a] ?? t("Reason");
 
-/** Shows an answer the way the person gave it: by name where the server resolved one, otherwise formatted by type. */
-function answerText(a: TicketAnswer): string {
-  if (a.display) return a.display;
-  if (a.type === "yes_no") return a.value === true ? t("Yes") : t("No");
-  if (a.type === "datetime" && typeof a.value === "string") return fmtDateTime(a.value);
-  if (Array.isArray(a.value)) return a.value.join(", ");
-  return String(a.value ?? "—");
-}
+
+/** The form's answers, without a long answer that only repeats the description (the request form sends the story once, as both). */
+const detailAnswers = (tk: TicketDetail) => tk.answers.filter((a) => !(a.type === "long_text" && typeof a.value === "string" && tk.description && a.value.trim() === tk.description.trim()));
 
 function Entry({ e }: { e: TicketEvent }) {
   const what = e.kind === "status" && e.to ? (e.from ? `${statusLabel(e.from)} → ${statusLabel(e.to)}` : statusLabel(e.to))
     : e.kind === "created" ? t("Request created") : e.kind === "assigned" ? t("Assignment") : e.kind === "updated" ? t("Edited") : e.kind === "escalation" ? t("SLA") : e.kind === "approval" ? t("Approval") : e.internal ? t("Internal note") : t("Comment");
   return (
     <li style={{ borderLeft: `3px solid ${e.internal ? "var(--orange, #d97706)" : "var(--border, #d1d5db)"}`, paddingLeft: 10 }}>
-      <b>{e.actor}</b> · <small>{what} · {fmtDateTime(e.at)}</small> {e.internal && <Badge tone="orange" dot={false}>{t("Staff only")}</Badge>}
-      {e.body && <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}>{e.body}</p>}
+      <b>{e.actor === "System" ? t("System") : e.actor}</b> · <small>{what} · {fmtDateTime(e.at)}</small> {e.internal && <Badge tone="orange" dot={false}>{t("Staff only")}</Badge>}
+      {e.body && <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}>{e.kind === "comment" ? e.body : eventText(e.body)}</p>}
     </li>
   );
 }
@@ -229,7 +226,7 @@ function Detail({ id }: { id: string }) {
         <div className="tk-head">
           <div style={{ minWidth: 0 }}>
             {staff ? <Link href="/tickets" className="back-link"><ArrowLeft size={14} /> {t("Ticket Queue")}</Link> : <Link href="/requests" className="back-link"><ArrowLeft size={14} /> {t("My requests")}</Link>}
-            <span className="num">{tk.serviceName}</span>
+            <span className="num">{td(tk.serviceName)}</span>
             <h1><span className="tk-no">{tk.number}</span> · {tk.subject}</h1>
           </div>
           <span className="row" style={{ gap: 8 }}><TicketStatusBadge status={tk.status} /><PriorityBadge priority={tk.priority} /><SlaBadge state={tk.sla?.state} /></span>
@@ -250,11 +247,11 @@ function Detail({ id }: { id: string }) {
         <div className="tk-layout">
           <div className="tk-main">
             <Panel title={t("Details")}>
-              {tk.description && <p style={{ whiteSpace: "pre-wrap", marginBottom: tk.answers.length ? 12 : 0 }}>{tk.description}</p>}
-              {tk.answers.length > 0 && <dl className="props">
-                {tk.answers.map((a) => <Fragment key={a.key}><dt>{a.label}</dt><dd>{answerText(a)}</dd></Fragment>)}
+              {tk.description && <p style={{ whiteSpace: "pre-wrap", marginBottom: detailAnswers(tk).length ? 12 : 0 }}>{tk.description}</p>}
+              {detailAnswers(tk).length > 0 && <dl className="props">
+                {detailAnswers(tk).map((a) => <Fragment key={a.key}><dt>{td(a.label)}</dt><dd>{answerText(a)}</dd></Fragment>)}
               </dl>}
-              {!tk.description && tk.answers.length === 0 && <p className="tab-placeholder">{t("No further details.")}</p>}
+              {!tk.description && detailAnswers(tk).length === 0 && <p className="tab-placeholder">{t("No further details.")}</p>}
             </Panel>
             {(tk.resolutionNote || tk.holdReason || tk.cancelReason) && <Panel title={tk.resolutionNote ? t("Resolution") : tk.holdReason ? t("On hold") : t("Cancelled")}>
               {tk.resolutionNote && <p><b>{resolutionLabel(tk.resolutionCode ?? "other")}</b>: {tk.resolutionNote}</p>}

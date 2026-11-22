@@ -14,17 +14,34 @@ import { get } from "@/lib/api/client";
 import type { MyApprovalItem } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
-import { t } from "@/i18n";
+import { answerText } from "@/lib/forms";
+import { t, td } from "@/i18n";
+
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
+
+/** What an approver needs to decide without opening the request: who asks, where, and the main answers of the form. */
+function Context({ r }: { r: MyApprovalItem }) {
+  const answers = (r.answers ?? []).filter((a) => a.value !== null && a.value !== "").slice(0, 4);
+  return (
+    <div className="approval-context">
+      <Link href={`/tickets/${r.ticketId}`}><b>{r.ticketNumber}</b> · {r.ticketSubject}</Link>
+      <small>
+        {td(r.serviceName)} · {t("from {name}", { name: r.requesterName ?? "—" })}{r.onBehalfOfName ? ` · ${t("for {name}", { name: r.onBehalfOfName })}` : ""}{r.locationName ? ` · ${r.locationName}` : ""}
+      </small>
+      {r.description && <p>{clip(r.description, 160)}</p>}
+      {answers.length > 0 && <dl>{answers.map((a) => <div key={a.key}><dt>{td(a.label)}</dt><dd>{clip(answerText(a), 120)}</dd></div>)}</dl>}
+    </div>
+  );
+}
 
 function Inbox({ rows, reload }: { rows: MyApprovalItem[]; reload: () => void }) {
   const [deciding, setDeciding] = useState<Deciding | null>(null); const [handing, setHanding] = useState<MyApprovalItem | null>(null);
   const pending = rows.filter((r) => r.status === "pending"); const decided = rows.filter((r) => r.status !== "pending");
   const label = (r: MyApprovalItem) => `${r.ticketNumber} · ${r.ticketSubject}`;
   const cols: Column<MyApprovalItem>[] = [
-    { key: "t", header: t("Request"), cell: (r) => <><Link href={`/tickets/${r.ticketId}`}><b>{r.ticketNumber}</b> · {r.ticketSubject}</Link><br /><small>{r.serviceName}{r.onBehalfOfName ? ` · ${t("for {name}", { name: r.onBehalfOfName })}` : ""}</small></> },
-    { key: "r", header: t("Requested by"), className: "hide-sm", cell: (r) => r.requesterName ?? "—" },
+    { key: "t", header: t("Request"), cell: (r) => <Context r={r} /> },
     { key: "s", header: t("Step"), className: "hide-sm", cell: (r) => r.stepName },
-    { key: "w", header: t("Since"), cell: (r) => fmtDateTime(r.createdAt) },
+    { key: "w", header: t("Since"), className: "hide-sm", cell: (r) => fmtDateTime(r.createdAt) },
     { key: "a", header: t("Decision"), cell: (r) => (
       <span className="row" style={{ gap: 6 }}>
         <Button size="sm" variant="primary" aria-label={`${t("Approve")} ${r.ticketNumber}`} onClick={() => setDeciding({ approvalId: r.id, approve: true, label: label(r) })}>{t("Approve")}</Button>

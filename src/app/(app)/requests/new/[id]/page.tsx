@@ -19,46 +19,60 @@ import { uploadFile } from "@/lib/files";
 import { buildAnswers } from "@/lib/forms";
 import { useQuery } from "@/lib/hooks";
 import { useRun } from "@/lib/use-run";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 function RequestForm({ detail }: { detail: PortalServiceDetail }) {
   const router = useRouter(); const run = useRun(); const { can } = useAuth();
   const about = useAboutAsset(useSearchParams().get("asset")); const [placeFromAsset, setPlaceFromAsset] = useState<string | null>(null);
   const locations = useQuery(() => get<PortalLocation[]>("/api/portal/locations"), []);
-  const [subject, setSubject] = useState(detail.service.name); const [description, setDescription] = useState("");
+  const named = td(detail.service.name);   // a subject needs 3 characters: a short name such as "AC" becomes "Permintaan AC"
+  const [subject, setSubject] = useState(named.length >= 3 ? named : t("{service} request", { service: named })); const [description, setDescription] = useState("");
   const [locationId, setLocationId] = useState(""); const [onBehalf, setOnBehalf] = useState<string | undefined>(undefined);
   const [values, setValues] = useState<FormValues>({});
   const [errs, setErrs] = useState<Record<string, string>>({}); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   const searchPeople = useCallback(async (q: string) => (await get<PortalPerson[]>("/api/portal/people", { q })).map((p) => ({ value: p.id, label: p.department ? `${p.name} · ${p.department}` : p.name })), []);
   const placeOptions = (locations.data ?? []).map((l) => ({ value: l.id, label: l.path }));
-  if (about?.locationId && placeFromAsset !== about.id) { setPlaceFromAsset(about.id); if (!locationId) setLocationId(about.locationId); }   // start at the asset's place
+  // A service form that asks "where" (a location question) or for the story (a long-text question keyed "details") would ask it twice
+  // next to the general fields. Those general fields are then left out and filled from the form's answers, so the ticket keeps its
+  // place (assignment rules, reports) and its description.
+  const placeField = detail.fields.find((f) => f.type === "location");
+  const storyField = detail.fields.find((f) => f.type === "long_text" && f.key === "details");
+  const place = (placeField ? (values[placeField.key] as string | undefined) : undefined) || locationId;
+  const details = storyField ? ((values[storyField.key] as string | undefined) ?? "") : description;
+  if (about?.locationId && placeFromAsset !== about.id) {   // start at the asset's place
+    setPlaceFromAsset(about.id);
+    if (!locationId) setLocationId(about.locationId);
+    if (placeField && !values[placeField.key]) setValues((v) => ({ ...v, [placeField.key]: about.locationId }));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setErr(""); setErrs({}); setBusy(true);
-    const body = { subject, description: description || null, answers: buildAnswers(detail.fields, values), locationId: locationId || null, onBehalfOfUserId: onBehalf ?? null, assetId: about?.id ?? null };
+    const body = { subject, description: details || null, answers: buildAnswers(detail.fields, values), locationId: place || null, onBehalfOfUserId: onBehalf ?? null, assetId: about?.id ?? null };
     const r = await run(() => post<TicketDetail>(`/api/portal/services/${detail.service.id}/requests`, body), undefined, { silent: true });
     setBusy(false);
     if (!r.ok) { setErr(r.error); setErrs(r.fields ?? {}); return; }
     router.push(`/tickets/${r.data.id}?created=1`);
   }
   const answerErrors = Object.fromEntries(Object.entries(errs).filter(([k]) => k.startsWith("answers.")).map(([k, v]) => [k.slice("answers.".length), v]));
+  if (placeField && errs.locationId) answerErrors[placeField.key] ??= errs.locationId;
+  if (storyField && errs.description) answerErrors[storyField.key] ??= errs.description;
 
   return (
-    <form className="stack" noValidate onSubmit={submit} aria-label={detail.service.name}>
+    <form className="stack" noValidate onSubmit={submit} aria-label={td(detail.service.name)}>
       {err && <div className="form-alert err" role="alert">{err}</div>}
       {about && <AboutAssetBanner asset={about} clearHref={`/requests/new/${detail.service.id}`} />}
       {errs.assetId && <div className="form-alert err" role="alert">{errs.assetId}</div>}
       <Panel title={t("About your request")}>
         <div className="stack">
           <Field label={t("Subject")} htmlFor="rf-subject" required error={errs.subject}><TextInput id="rf-subject" maxLength={200} value={subject} onChange={(e) => setSubject(e.target.value)} /></Field>
-          <Field label={t("Where is it?")} htmlFor="rf-loc" error={errs.locationId}>
+          {!placeField && <Field label={t("Where is it?")} htmlFor="rf-loc" error={errs.locationId}>
             <SelectInput id="rf-loc" value={locationId} onChange={(e) => setLocationId(e.target.value)} options={[{ value: "", label: t("Not sure / not applicable") }, ...placeOptions]} />
-          </Field>
-          <Field label={t("More detail")} htmlFor="rf-desc" error={errs.description}><textarea id="rf-desc" rows={4} maxLength={4000} className="textarea" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+          </Field>}
+          {!storyField && <Field label={t("More detail")} htmlFor="rf-desc" error={errs.description}><textarea id="rf-desc" rows={4} maxLength={4000} className="textarea" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>}
           {can("tickets.update") && <Field label={t("Request on behalf of")} htmlFor="rf-behalf" error={errs.onBehalfOfUserId}><PersonPicker id="rf-behalf" value={onBehalf ?? ""} onChange={setOnBehalf} search={searchPeople} /></Field>}
         </div>
       </Panel>
-      <KbSuggestions serviceId={detail.service.id} text={subject === detail.service.name ? description : `${subject} ${description}`} />
+      <KbSuggestions serviceId={detail.service.id} text={subject === named || subject === t("{service} request", { service: named }) ? details : `${subject} ${details}`} />
       {detail.fields.length > 0 && <Panel title={t("Details")}>
         <DynamicForm fields={detail.fields} values={values} onChange={setValues} errors={answerErrors} locations={placeOptions} searchPeople={searchPeople} upload={(f) => uploadFile("/api/uploads", f)} idPrefix="rq" />
       </Panel>}
@@ -78,8 +92,8 @@ function Page({ id }: { id: string }) {
         <div className="crud-top">
           <div>
             <Link href="/requests/new" className="back-link"><ArrowLeft size={14} /> {t("New request")}</Link>
-            <h1>{d.service.name}</h1>
-            <p>{d.service.description ?? d.categoryName}</p>
+            <h1>{td(d.service.name)}</h1>
+            <p>{td(d.service.description ?? d.categoryName)}</p>
           </div>
           <PriorityBadge priority={d.defaultPriority} />
         </div>

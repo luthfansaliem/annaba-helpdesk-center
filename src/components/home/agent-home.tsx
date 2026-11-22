@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth";
 import { useQuery } from "@/lib/hooks";
 import { fmtDateTime } from "@/lib/format";
 import { minutes, percent } from "@/components/reports/parts";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 const STATUS_COLORS: Record<string, string> = { pendingapproval: "#f59e0b", submitted: "#94a3b8", assigned: "#0b62e6", inprogress: "#14b8a6", onhold: "#f4694f", reopened: "#8b5cf6" };
 
@@ -28,7 +28,7 @@ function MyQueue() {
     <ul className="req-list">
       {mine.data.data.map((r) => (
         <li key={r.id}>
-          <div><Link href={`/tickets/${r.id}`}><b>{r.subject}</b></Link><small>{r.number} · {r.serviceName}{r.locationName ? ` · ${r.locationName}` : ""}{r.resolutionDueAt ? ` · ${t("due")} ${fmtDateTime(r.resolutionDueAt)}` : ""}</small></div>
+          <div><Link href={`/tickets/${r.id}`}><b>{r.subject}</b></Link><small>{r.number} · {td(r.serviceName)}{r.locationName ? ` · ${r.locationName}` : ""}{r.resolutionDueAt ? ` · ${t("due")} ${fmtDateTime(r.resolutionDueAt)}` : ""}</small></div>
           <PriorityBadge priority={r.priority} />{r.slaState && <SlaBadge state={r.slaState} />}
         </li>
       ))}

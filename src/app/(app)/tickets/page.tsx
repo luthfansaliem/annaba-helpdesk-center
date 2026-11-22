@@ -18,7 +18,7 @@ import { get } from "@/lib/api/client";
 import type { OperationsReport, Paged, PortalLocation, Priority, TicketListItem } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 /** The filters on screen. Their names are the ones a saved view stores, so a view can set them back exactly. */
 type Filters = { q: string; status: string; priority: string; sla: string; sort: string; locationId: string; from: string; to: string; unassigned: boolean; assignedToMe: boolean };
@@ -55,7 +55,7 @@ function Queue() {
 
   const cols: Column<TicketListItem>[] = [
     { key: "n", header: t("Number"), cell: (r) => <Link href={`/tickets/${r.id}`} className="nowrap"><b>{r.number}</b></Link> },
-    { key: "s", header: t("Subject"), cell: (r) => <><Link href={`/tickets/${r.id}`}>{r.subject}</Link><br /><small>{r.serviceName}{r.locationName ? ` · ${r.locationName}` : ""}</small></> },
+    { key: "s", header: t("Subject"), cell: (r) => <><Link href={`/tickets/${r.id}`}>{r.subject}</Link><br /><small>{td(r.serviceName)}{r.locationName ? ` · ${r.locationName}` : ""}</small></> },
     { key: "st", header: t("Status"), cell: (r) => <TicketStatusBadge status={r.status} /> },
     { key: "p", header: t("Priority"), cell: (r) => <PriorityBadge priority={r.priority} /> },
     { key: "sl", header: t("SLA"), cell: (r) => <><SlaBadge state={r.slaState} />{r.resolutionDueAt && <small style={{ display: "block" }}>{t("due")} {fmtDateTime(r.resolutionDueAt)}</small>}</> },
