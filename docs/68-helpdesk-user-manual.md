@@ -190,7 +190,7 @@ Gunanya: memesan ruang rapat, mobil kantor, tempat parkir, atau peralatan bersam
 
 *Pemesanan: sumber daya di kiri, jam di atas. Kotak berwarna adalah pemesanan yang sudah ada.*
 
-1. Buka **Pemesanan**. Atur **Tanggal**, **Lokasi**, jumlah orang (**Minimal … orang**), dan fasilitas yang dibutuhkan (proyektor, panggilan video, dan lain-lain).
+1. Buka **Pemesanan**. Atur **Tanggal**, **Lokasi**, kapasitas (**Kapasitas minimal**), dan **Fasilitas** yang dibutuhkan (proyektor, panggilan video, dan lain-lain).
 2. Klik waktu yang masih kosong pada baris sumber daya yang Anda mau, atau tekan **Pemesanan baru**.
 3. Isi judul, jam mulai dan selesai, serta jumlah peserta. Untuk rapat rutin, isi bagian pengulangan (setiap hari, hari kerja, atau setiap minggu).
 4. Tekan **Pesan**.

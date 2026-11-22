@@ -209,6 +209,33 @@ Prioritas: **P1** = mengganggu pemakaian sehari-hari atau kesan pertama klien, p
 **9. "Selesai" di permintaan terbuka: diperbaiki.**
 - Bagi peminta, status Selesai kini berbunyi **Menunggu konfirmasi Anda**, dengan tautan **Periksa & konfirmasi** di Beranda. Ini juga berlaku di Permintaan saya.
 
+## Status perbaikan P3 dan sisanya (22 November 2026)
+
+**10. Istilah teknis: diperbaiki.**
+- Operasional: "waktu jam dinding" menjadi "termasuk malam dan akhir pekan".
+- Halaman Mulai: teks tentang ClamAV dan runbook diganti menjadi "Minta administrator Anda mengaktifkan pemindaian virus untuk unggahan".
+- Filter Pemesanan: "Minimal … orang" menjadi **Kapasitas minimal**, dan "Dipegang" menjadi **Fasilitas**. Label "Dipegang" tetap dipakai di Aset, karena di sana artinya memang pemegang aset.
+
+**11. Dua lonceng di header: diperbaiki.**
+- Peristiwa keamanan kini berikon perisai, dengan tooltip "Peristiwa keamanan" dan label "{n} peristiwa keamanan belum ditinjau".
+- Lonceng notifikasi mendapat tooltip "Notifikasi".
+- Label tombol tema juga diterjemahkan.
+
+**12. Grafik Operasional: diperbaiki.**
+- Label hari memakai format "24 Okt" (`fmtDay`).
+- Sumbu memakai langkah bulat (`niceScale`: 0, 10, 20, 30), di Operasional maupun di Beranda tim GA.
+- Kurva memang sudah tidak turun di bawah nol, karena `smooth()` membatasi titik kendalinya; tidak ada yang perlu diubah.
+
+**Catatan fungsional (stock opname): diperbaiki.**
+- Saat sebuah baris dihitung, angka "seharusnya" diambil ulang dari saldo saat itu. Pergerakan stok selama stock opname terbuka tidak lagi dikoreksi dua kali.
+- Tes API baru: `Stock_moved_while_a_count_is_open_is_not_corrected_twice`.
+
+**Uji e2e:**
+- `e2e/scripts/start-api.sh` menerima `E2E_DB_CONTAINER` dan `E2E_DB_PORT` (didokumentasikan di README).
+- Spec baru `e2e/mobile.spec.ts` (375×812) memeriksa empat hal: tombol masuk ada di layar pertama, semua halaman karyawan dan staf tidak lebih lebar dari layar, formulir permintaan dengan pilihan panjang pas di layar, dan angka booking manajerial tersembunyi bagi karyawan.
+
+Semua temuan dalam tinjauan ini sudah ditangani.
+
 ## Urutan pengerjaan yang disarankan
 
 1. **Sebelum demo ke klien (±2–3 hari kerja):**
