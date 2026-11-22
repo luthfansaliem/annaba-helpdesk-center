@@ -109,6 +109,8 @@ const idData: Record<string, string> = {
   // ---- approval inbox
   "from {name}": "dari {name}",
   "{service} request": "Permintaan {service}",
+  "Saved views…": "Tampilan tersimpan…",
+  "Waiting for your confirmation": "Menunggu konfirmasi Anda", "Check and confirm": "Periksa & konfirmasi",
 
   // ---- the API's most common validation messages (shown through api/client.ts)
   "Please correct the highlighted fields.": "Periksa kembali kolom yang ditandai.",

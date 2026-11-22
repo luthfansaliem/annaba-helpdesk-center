@@ -16,12 +16,14 @@ import { t } from "@/i18n";
 export type ViewFilter = Record<string, string>;
 
 /** Saved filters of the queue: pick one to apply it, save what is on screen as a new view or over the one in use, remove one you no longer need. */
-export function ViewsBar({ current, onApply }: { current: ViewFilter; onApply: (f: ViewFilter) => void }) {
+/** `inline`: sits at the end of the queue's tab row, its label for screen readers only. */
+export function ViewsBar({ current, onApply, inline = false }: { current: ViewFilter; onApply: (f: ViewFilter) => void; inline?: boolean }) {
   const { can } = useAuth(); const run = useRun();
   const views = useQuery(() => get<TicketViewItem[]>("/api/ticket-views").catch(() => [] as TicketViewItem[]), []);
   const [activeId, setActiveId] = useState(""); const [saving, setSaving] = useState(false); const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const list = views.data ?? []; const active = list.find((v) => v.id === activeId) ?? null;
   const mine = list.filter((v) => v.mine); const shared = list.filter((v) => !v.mine);
+  const viewOptions = [...mine.map((v) => ({ value: v.id, label: v.name })), ...shared.map((v) => ({ value: v.id, label: `${v.name} · ${t("shared")}` }))];
 
   function pick(id: string) { setActiveId(id); const v = list.find((x) => x.id === id); if (v) onApply(v.filter); }
   function remove(v: TicketViewItem) {
@@ -34,11 +36,10 @@ export function ViewsBar({ current, onApply }: { current: ViewFilter; onApply: (
   }
 
   return (
-    <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end", paddingBottom: 12 }}>
-      <Field label={t("Saved views")} htmlFor="tq-view">
-        <SelectInput id="tq-view" value={activeId} onChange={(e) => pick(e.target.value)} placeholder={t("Choose a view…")}
-          options={[...mine.map((v) => ({ value: v.id, label: v.name })), ...shared.map((v) => ({ value: v.id, label: `${v.name} · ${t("shared")}` }))]} />
-      </Field>
+    <div className={inline ? "views-inline" : "row"} style={inline ? undefined : { gap: 8, flexWrap: "wrap", alignItems: "flex-end", paddingBottom: 12 }}>
+      {inline
+        ? <><label htmlFor="tq-view" className="sr-only">{t("Saved views")}</label><SelectInput id="tq-view" value={activeId} onChange={(e) => pick(e.target.value)} placeholder={t("Saved views…")} options={viewOptions} /></>
+        : <Field label={t("Saved views")} htmlFor="tq-view"><SelectInput id="tq-view" value={activeId} onChange={(e) => pick(e.target.value)} placeholder={t("Choose a view…")} options={viewOptions} /></Field>}
       <Button onClick={() => setSaving(true)}><Bookmark size={14} /> {t("Save as view")}</Button>
       {active?.canEdit && <Button onClick={() => overwrite(active)} aria-label={t("Update view {name}", { name: active.name })}>{t("Update view")}</Button>}
       {active?.canEdit && <Button variant="danger-outline" onClick={() => remove(active)} aria-label={t("Remove view {name}", { name: active.name })}>{t("Remove view")}</Button>}

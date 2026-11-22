@@ -80,6 +80,7 @@ test.describe("queue: bulk actions and saved views (TKT-011)", () => {
     await admin.goto("/tickets");
     await admin.getByLabel("Priority", { exact: true }).selectOption({ label: "Urgent" });
     await admin.getByLabel("Search", { exact: true }).fill("leak");
+    await admin.getByRole("button", { name: "More filters" }).click();                                    // the rarer filters sit behind it
     await admin.getByRole("checkbox", { name: "Assigned to me" }).check();
     await admin.getByRole("button", { name: "Save as view" }).click();
     const dlg = admin.getByRole("dialog", { name: "Save as view" });
@@ -97,7 +98,7 @@ test.describe("queue: bulk actions and saved views (TKT-011)", () => {
     await admin.getByLabel("Saved views").selectOption({ label: name });
     await expect(admin.getByLabel("Search", { exact: true })).toHaveValue("leak");
     await expect(admin.getByLabel("Priority", { exact: true })).toHaveValue("urgent");
-    await expect(admin.getByRole("checkbox", { name: "Assigned to me" })).toBeChecked();
+    await expect(admin.getByRole("checkbox", { name: "Assigned to me" })).toBeChecked();                        // a view with a rarer filter opens "More filters" itself
     await axe(admin, "queue with views");
 
     await admin.getByRole("button", { name: `Remove view ${name}` }).click();

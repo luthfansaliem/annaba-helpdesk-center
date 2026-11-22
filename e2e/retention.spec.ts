@@ -73,7 +73,7 @@ test.describe("data retention (ADM-006)", () => {
     await expect(dlg.getByText("Use 3–300 characters.")).toBeVisible();                                    // a reason is required
     await dlg.getByLabel(/Reason/).fill("Court order 2026/17");
     await dlg.getByRole("button", { name: "Place hold" }).click();
-    await expect(adminPage.getByText("Under legal hold")).toBeVisible();
+    await expect(adminPage.getByText("Under legal hold", { exact: true })).toBeVisible();                     // the badge, not the toast that says so too
     await expect(adminPage.getByText("Court order 2026/17")).toBeVisible();
     await member.goto(`/tickets/${ticket.id}`);                                                           // the requester never sees the hold
     await expect(member.getByRole("heading", { name: new RegExp(ticket.number) })).toBeVisible();

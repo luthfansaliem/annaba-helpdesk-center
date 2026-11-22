@@ -9,6 +9,7 @@ import { KpiCard, KpiGrid } from "@/components/insights/kpi";
 import { Skeleton } from "@/components/ui/states";
 import { del, get, post, put } from "@/lib/api/client";
 import type { BookingFeedInfo, BookingItem, BookingSummary, ResourceItem, ResourceKind, SeriesResult } from "@/lib/api/types";
+import { useAuth } from "@/lib/auth";
 import { useQuery } from "@/lib/hooks";
 import { useRun } from "@/lib/use-run";
 import { formatLocale, t } from "@/i18n";
@@ -234,6 +235,7 @@ export function CancelBooking({ booking, onClose, onDone }: { booking: BookingIt
 export function BookingInsights({ reloadKey }: { reloadKey: number }) {
   const q = useQuery(() => get<BookingSummary>("/api/bookings/summary"), [reloadKey]);
   const s = q.data;
+  const manager = useAuth().can("bookings.read_all");   // no-shows and utilisation are for whoever runs the resources, not for someone booking a room
   if (!s) return <div className="kpis">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} h={86} />)}</div>;
   if (s.resources === 0) return null;
   return (
@@ -243,8 +245,8 @@ export function BookingInsights({ reloadKey }: { reloadKey: number }) {
       <KpiCard icon={<CalendarDays size={18} />} label={t("Bookings today")} value={String(s.bookingsToday)} note={t("{n} in the next 7 days", { n: s.next7Days.reduce((a, d) => a + d.bookings, 0) })} />
       <KpiCard icon={<UserRound size={18} />} label={t("My upcoming")} value={String(s.myUpcoming)} note={t("bookings for you")} />
       {s.pendingApprovals > 0 && <KpiCard icon={<Hourglass size={18} />} label={t("Waiting for approval")} value={String(s.pendingApprovals)} note={t("bookings you can decide")} tone="warn" />}
-      {s.noShows7 > 0 && <KpiCard icon={<UserX size={18} />} label={t("No-shows")} value={String(s.noShows7)} note={t("released, last 7 days")} tone="warn" />}
-      <KpiCard icon={<Gauge size={18} />} label={t("Room and vehicle use")} value={s.utilisationPercent === null ? "—" : `${s.utilisationPercent}%`} note={t("of opening hours, last 7 days")} />
+      {manager && s.noShows7 > 0 && <KpiCard icon={<UserX size={18} />} label={t("No-shows")} value={String(s.noShows7)} note={t("released, last 7 days")} tone="warn" />}
+      {manager && <KpiCard icon={<Gauge size={18} />} label={t("Room and vehicle use")} value={s.utilisationPercent === null ? "—" : `${s.utilisationPercent}%`} note={t("of opening hours, last 7 days")} />}
     </KpiGrid>
   );
 }
