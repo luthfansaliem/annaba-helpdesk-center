@@ -93,7 +93,7 @@ public sealed class InventoryTests(PostgresFixture fx)
     }
 
     [Fact]
-    public async Task A_stock_take_freezes_what_is_expected_and_posts_the_differences()
+    public async Task A_stock_take_posts_the_differences_between_what_was_counted_and_what_was_expected()
     {
         var iso = await fx.NewIsolatedAsync(); var f = iso.Factory; var clock = iso.Clock; var seed = new Seed(f, clock);
         async Task<TestBrowser> Person(string role) { var u = await seed.UserAsync(role: role); var b = TestBrowser.Create(f); await b.LoginAsync(u.Email, Seed.Password); return b; }
@@ -125,5 +125,37 @@ public sealed class InventoryTests(PostgresFixture fx)
         Assert.Equal("count", moves[0].GetProperty("kind").GetString()); Assert.Equal(-2, moves[0].GetProperty("quantity").GetInt32());
         Assert.Equal(HttpStatusCode.Conflict, (await sup.Post($"/api/inventory/stock-takes/{tid}/close")).StatusCode);
         Assert.Single((await Ok(await agent.Get("/api/inventory/stock-takes"))).EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Stock_moved_while_a_count_is_open_is_not_corrected_twice()
+    {
+        var iso = await fx.NewIsolatedAsync(); var f = iso.Factory; var clock = iso.Clock; var seed = new Seed(f, clock);
+        async Task<TestBrowser> Person(string role) { var u = await seed.UserAsync(role: role); var b = TestBrowser.Create(f); await b.LoginAsync(u.Email, Seed.Password); return b; }
+        var mgr = await Person("ga_manager"); var sup = await Person("ga_supervisor"); var admin = await Person("super_admin");
+        var store = IdOf(await Ok(await admin.Post("/api/locations", new { type = "site", code = "ST-" + Guid.NewGuid().ToString("N")[..4], name = "Ground floor store" })));
+        async Task<Guid> Item(string sku, int qty)
+        {
+            var id = IdOf(await Ok(await mgr.Post("/api/inventory/items", new { sku, name = sku, category = "atk", unit = "pack", reorderLevel = 1 })));
+            await Ok(await mgr.Post($"/api/inventory/items/{id}/moves", new { kind = "receipt", locationId = store, quantity = qty }));
+            return id;
+        }
+        var paper = await Item("PAP-" + Guid.NewGuid().ToString("N")[..4], 12); var toner = await Item("TON-" + Guid.NewGuid().ToString("N")[..4], 6);
+        async Task<int> Total(Guid item) => (await Ok(await mgr.Get($"/api/inventory/items/{item}"))).GetProperty("total").GetInt32();
+
+        var tid = IdOf(await Ok(await sup.Post("/api/inventory/stock-takes", new { locationId = store })));          // paper expected 12, toner 6
+
+        // paper: 3 packs go out after the count started, then the shelf is counted and holds the 9 that are left
+        await Ok(await mgr.Post($"/api/inventory/items/{paper}/moves", new { kind = "issue", locationId = store, quantity = 3 }));
+        var counted = await Ok(await sup.SendAsync(HttpMethod.Put, $"/api/inventory/stock-takes/{tid}/counts", new { counts = new Dictionary<Guid, int?> { [paper] = 9, [toner] = 5 } }));
+        Assert.Equal(1, counted.GetProperty("variances").GetInt32());                                                // only toner is off: paper matches what the shelf should hold now
+        // toner: one is missing when counted (6 → 5), then 4 arrive before the count is closed
+        await Ok(await mgr.Post($"/api/inventory/items/{toner}/moves", new { kind = "receipt", locationId = store, quantity = 4 }));
+
+        await Ok(await sup.Post($"/api/inventory/stock-takes/{tid}/close"));
+        Assert.Equal(9, await Total(paper));    // 12 − 3 issued; before the fix the count posted another −3 (6)
+        Assert.Equal(9, await Total(toner));    // 6 − 1 missing + 4 received
+        var moves = await Ok(await mgr.Get($"/api/inventory/movements?itemId={paper}"));
+        Assert.DoesNotContain(moves.EnumerateArray(), m => m.GetProperty("kind").GetString() == "count");
     }
 }

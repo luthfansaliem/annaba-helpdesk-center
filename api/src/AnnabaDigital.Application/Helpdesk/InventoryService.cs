@@ -286,17 +286,22 @@ public sealed class InventoryService(IAppDb db, IClock clock, AuditWriter audit,
     {
         var t = await db.StockTakes.Include(x => x.Lines).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw DomainException.NotFound("Count");
         if (t.ClosedAt is not null) throw DomainException.Conflict("This count is closed.");
+        // What the shelf should hold is taken again at the moment a line is counted, so movements posted since the count started are
+        // part of it. Closing posts Counted − Expected: with the start-time figure, an issue or receipt made in between was counted twice.
+        var counting = (req.Counts ?? []).Where(c => c.Value is not null).Select(c => c.Key).ToList();
+        var now = await db.StockBalances.AsNoTracking().Where(b => b.LocationId == t.LocationId && counting.Contains(b.ItemId)).ToDictionaryAsync(b => b.ItemId, b => b.Quantity, ct);
         foreach (var (itemId, counted) in req.Counts ?? [])
         {
             var line = t.Lines.FirstOrDefault(l => l.ItemId == itemId) ?? throw Invalid(new Dictionary<string, string> { ["counts"] = "An item is not part of this count." });
             if (counted is < 0 or > InventoryRules.MaxQuantity) throw Invalid(new Dictionary<string, string> { [$"counts.{itemId}"] = "Use 0 or more." });
             line.Counted = counted;
+            if (counted is not null) line.Expected = now.GetValueOrDefault(itemId);
         }
         await db.SaveChangesAsync(ct);
         return await TakeAsync(id, ct);
     }
 
-    /// <summary>Closes the count: every counted line that differs from what was expected posts a Count movement for the difference. Lines not counted change nothing.</summary>
+    /// <summary>Closes the count: every counted line that differs from what was expected when it was counted posts a Count movement for the difference. Lines not counted change nothing.</summary>
     public async Task<StockTakeDto> CloseTakeAsync(Guid id, SessionPrincipal actor, ClientInfo client, CancellationToken ct = default)
     {
         var t = await db.StockTakes.Include(x => x.Lines).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw DomainException.NotFound("Count");

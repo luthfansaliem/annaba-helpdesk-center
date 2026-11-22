@@ -40,6 +40,7 @@ Demo users (Development only) are listed in `api/README.md`.
 npm run typecheck && npm run lint && npm test      # UI: types, lint, vitest
 npm run api:test                                    # API: needs Docker (Testcontainers starts PostgreSQL)
 npm run build && npm run test:e2e                   # end-to-end (Playwright, needs the dev database container)
+E2E_DB_CONTAINER=my-db E2E_DB_PORT=5433 npm run test:e2e   # when the dev container has another name or port 5432 is taken
 ```
 
 ## Structure

@@ -24,7 +24,7 @@ const TEXT: Record<string, () => { title: string; why: string; cta: string }> = 
   sla: () => ({ title: t("Service-level targets"), why: t("Targets for first response and resolution by priority, so overdue work is visible."), cta: t("Open SLA policies") }),
   routing: () => ({ title: t("Route new requests to a team"), why: t("Without a rule, new tickets wait unassigned. One rule that sends everything to your team is enough to start."), cta: t("Open assignment rules") }),
   approvals: () => ({ title: t("Approvals (optional)"), why: t("Require a manager's approval for services that spend money or need authorisation."), cta: t("Open approval policies") }),
-  scanner: () => ({ title: t("Virus scanning of uploads"), why: t("Files people attach should be scanned. Ask your administrator to connect ClamAV (Storage:ClamAvHost); see the staging runbook."), cta: t("Open the checklist") }),
+  scanner: () => ({ title: t("Virus scanning of uploads"), why: t("Files people attach should be scanned for viruses. Ask your administrator to turn on virus scanning for uploads."), cta: t("Open the checklist") }),
   test: () => ({ title: t("Send a test request"), why: t("File a request yourself and follow it through the queue before you tell everyone."), cta: t("New request") }),
 };
 
