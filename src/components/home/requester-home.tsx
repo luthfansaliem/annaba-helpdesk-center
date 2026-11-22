@@ -14,7 +14,7 @@ import type { KbSuggestion, Paged, PortalCatalog, TicketListItem } from "@/lib/a
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@/lib/hooks";
 import { rel } from "@/lib/format";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 /** "What do you need?": one box that finds services (to ask for) and articles (to help yourself) as you type. */
 function AskBox({ catalog }: { catalog: PortalCatalog | undefined }) {
@@ -23,7 +23,7 @@ function AskBox({ catalog }: { catalog: PortalCatalog | undefined }) {
   const services = useMemo(() => {
     if (!catalog || term.length < 2) return [];
     const words = term.toLowerCase().split(/\s+/);
-    return catalog.services.filter((s) => words.every((w) => `${s.name} ${s.description ?? ""}`.toLowerCase().includes(w))).slice(0, 5);
+    return catalog.services.filter((s) => words.every((w) => `${s.name} ${s.description ?? ""} ${td(s.name)} ${td(s.description) ?? ""}`.toLowerCase().includes(w))).slice(0, 5);
   }, [catalog, term]);
   const articles = (kb.data ?? []).slice(0, 4);
   return (
@@ -33,7 +33,7 @@ function AskBox({ catalog }: { catalog: PortalCatalog | undefined }) {
       <label className="ask"><Search size={18} aria-hidden /><input aria-label={t("What do you need?")} placeholder={t("e.g. air conditioning, meeting room, visitor badge")} value={q} onChange={(e) => setQ(e.target.value)} /></label>
       {term.length >= 2 && (
         <ul className="ask-results" aria-live="polite">
-          {services.map((s) => <li key={s.id}><Link href={`/requests/new/${s.id}`}><FilePlus2 size={16} aria-hidden /> <span><b>{s.name}</b>{s.description && <small> · {s.description}</small>}</span></Link></li>)}
+          {services.map((s) => <li key={s.id}><Link href={`/requests/new/${s.id}`}><FilePlus2 size={16} aria-hidden /> <span><b>{td(s.name)}</b>{s.description && <small> · {td(s.description)}</small>}</span></Link></li>)}
           {articles.map((a) => <li key={a.id}><Link href={`/kb/${a.id}`}><BookOpen size={16} aria-hidden /> <span><b>{a.title}</b><small> · {t("Article")}</small></span></Link></li>)}
           {services.length === 0 && articles.length === 0 && !kb.loading && <li><Link href="/requests/new"><ArrowRight size={16} aria-hidden /> <span>{t("Nothing matches. Browse all services")}</span></Link></li>}
         </ul>
@@ -54,7 +54,7 @@ function Popular({ catalog }: { catalog: PortalCatalog }) {
         return (
           <Link key={s.id} href={`/requests/new/${s.id}`} className="tile">
             <span className="ti" style={{ background: c.bg, color: c.fg }}><CatalogIcon name={s.icon ?? icon.get(s.categoryId)} /></span>
-            <div><b>{s.name}</b>{s.description && <small>{s.description}</small>}</div>
+            <div><b>{td(s.name)}</b>{s.description && <small>{td(s.description)}</small>}</div>
           </Link>
         );
       })}
@@ -72,7 +72,7 @@ function MyOpen() {
       <ul className="req-list">
         {rows.map((r) => (
           <li key={r.id}>
-            <div><Link href={`/tickets/${r.id}`}><b>{r.subject}</b></Link><small>{r.number} · {r.serviceName} · {t("updated")} {rel(r.updatedAt)}</small></div>
+            <div><Link href={`/tickets/${r.id}`}><b>{r.subject}</b></Link><small>{r.number} · {td(r.serviceName)} · {t("updated")} {rel(r.updatedAt)}</small></div>
             <TicketStatusBadge status={r.status} />
           </li>
         ))}

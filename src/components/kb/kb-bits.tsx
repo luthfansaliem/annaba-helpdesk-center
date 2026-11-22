@@ -63,7 +63,7 @@ export function KbSuggestions({ serviceId, text }: { serviceId: string; text: st
     <Panel title={t("Maybe this already answers it")} description={t("Articles from the knowledge base that match your request.")}>
       <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0 }} data-testid="kb-suggestions">
         {items.map((s) => (
-          <li key={s.id}><Button size="sm" onClick={() => setOpen(s.id)}><BookOpen size={14} /> {s.title}</Button>{s.summary && <small className="sub"> {s.summary}</small>}</li>
+          <li key={s.id}><Button size="sm" className="wrap" onClick={() => setOpen(s.id)}><BookOpen size={14} /> {s.title}</Button>{s.summary && <small className="sub"> {s.summary}</small>}</li>
         ))}
       </ul>
       <Overlay open={open !== null} onClose={() => setOpen(null)} side="right" title={article.data?.title ?? t("Article")} description={t("From the knowledge base")}

@@ -41,3 +41,12 @@ export function t(key: string, vars?: Record<string, string | number>): string {
   const s = dicts[lang][key] ?? key;
   return vars ? s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? `{${k}}`)) : s;
 }
+
+/**
+ * Translate text that comes from DATA, not from code: names, descriptions, questions and choices of the starter catalog
+ * (api CatalogTemplates), and names the platform seeds such as the default organisation. Text an administrator typed
+ * has no dictionary entry and shows exactly as typed, so this is safe on any stored label.
+ */
+export function td<T extends string | null | undefined>(text: T): T {
+  return (typeof text === "string" && text ? t(text) : text) as T;
+}

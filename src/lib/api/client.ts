@@ -5,6 +5,8 @@
  * - routes session-level failures (401 / locked / MFA pending / MFA enrolment required) to registered handlers
  * - when the server says `reauth_required`, asks the UI for a password (+ code) and transparently retries once
  */
+import { td } from "@/i18n";
+
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public fields?: Record<string, string>, public requestId?: string, public retryAfter?: number) { super(message); }
   get denied() { return this.status === 403 && this.code === "denied"; }
@@ -33,7 +35,9 @@ async function toError(r: Response): Promise<ApiError> {
   try { body = await r.json(); } catch { /* non-JSON (proxy/network error page) */ }
   const e = body.error;
   const retry = Number(r.headers.get("Retry-After")) || undefined;
-  return new ApiError(r.status, e?.code ?? (r.status === 404 ? "not_found" : "error"), e?.message ?? `Request failed (${r.status}).`, e?.fields ?? undefined, e?.requestId, retry);
+  // The API writes its messages in English; the ones with a dictionary entry are shown in the reader's language (src/i18n/id-data.ts).
+  const fields = e?.fields ? Object.fromEntries(Object.entries(e.fields).map(([k, v]) => [k, td(v)])) : undefined;
+  return new ApiError(r.status, e?.code ?? (r.status === 404 ? "not_found" : "error"), td(e?.message) ?? `Request failed (${r.status}).`, fields, e?.requestId, retry);
 }
 
 export type Opts = { method?: string; body?: unknown; rawBody?: BodyInit; contentType?: string; query?: Record<string, string | number | boolean | undefined | null>; signal?: AbortSignal; noRoute?: boolean; noReauth?: boolean; headers?: Record<string, string> };

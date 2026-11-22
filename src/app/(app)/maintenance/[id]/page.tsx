@@ -16,7 +16,7 @@ import { del, get, post } from "@/lib/api/client";
 import type { PlanDetail, PlanVisit } from "@/lib/api/types";
 import { useQuery } from "@/lib/hooks";
 import { useRun } from "@/lib/use-run";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><dt><b>{label}</b></dt><dd style={{ margin: 0 }}>{children}</dd></div>;
@@ -62,7 +62,7 @@ function Detail({ id }: { id: string }) {
                 <Row label={t("What is serviced")}>{p.target}{p.assetTypeId ? ` (${t("{n} now", { n: p.targets })})` : ""}</Row>
                 <Row label={t("How often")}>{rhythm(p.unit, p.every)}, {t("from {date}", { date: p.startsOn })}{p.endsOn ? ` ${t("until {date}", { date: p.endsOn })}` : ""}</Row>
                 <Row label={t("Work is made")}>{t("{n} days before the date", { n: p.leadDays })}</Row>
-                <Row label={t("Filed under service")}>{p.serviceName}</Row>
+                <Row label={t("Filed under service")}>{td(p.serviceName)}</Row>
                 <Row label={t("Checklist")}>{p.checklistName ?? "—"}</Row>
                 <Row label={t("Who")}>{[p.assigneeName, p.teamName ?? t("The service's team"), p.vendorName].filter(Boolean).join(" · ")}</Row>
                 {p.instructions && <Row label={t("Instructions")}><span style={{ whiteSpace: "pre-wrap" }}>{p.instructions}</span></Row>}

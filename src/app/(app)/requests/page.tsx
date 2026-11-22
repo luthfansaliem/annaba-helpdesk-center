@@ -14,7 +14,7 @@ import { get } from "@/lib/api/client";
 import type { Paged, TicketListItem } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
 import { useQuery } from "@/lib/hooks";
-import { t } from "@/i18n";
+import { t, td } from "@/i18n";
 
 export default function MyRequestsPage() {
   const [status, setStatus] = useState("open"); const [q, setQ] = useState(""); const [page, setPage] = useState(1); const [size, setSize] = useState(10);
@@ -23,7 +23,7 @@ export default function MyRequestsPage() {
 
   const cols: Column<TicketListItem>[] = [
     { key: "n", header: t("Number"), cell: (r) => <Link href={`/tickets/${r.id}`}><b>{r.number}</b></Link> },
-    { key: "s", header: t("Request"), cell: (r) => <><Link href={`/tickets/${r.id}`}>{r.subject}</Link><br /><small>{r.serviceName}</small></> },
+    { key: "s", header: t("Request"), cell: (r) => <><Link href={`/tickets/${r.id}`}>{r.subject}</Link><br /><small>{td(r.serviceName)}</small></> },
     { key: "st", header: t("Status"), cell: (r) => <TicketStatusBadge status={r.status} /> },
     { key: "a", header: t("Handled by"), className: "hide-sm", cell: (r) => r.assigneeName ?? r.teamName ?? "—" },
     { key: "u", header: t("Updated"), className: "hide-sm", cell: (r) => fmtDateTime(r.updatedAt) },

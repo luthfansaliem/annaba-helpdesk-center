@@ -1,5 +1,6 @@
-import type { ConditionOp, FieldOption, FieldType, FormField } from "@/lib/api/types";
-import { t } from "@/i18n";
+import type { ConditionOp, FieldOption, FieldType, FormField, TicketAnswer } from "@/lib/api/types";
+import { fmtDateTime } from "@/lib/format";
+import { t, td } from "@/i18n";
 
 export const FIELD_TYPES: FieldType[] = ["text", "long_text", "number", "date", "datetime", "select", "multi_select", "yes_no", "location", "user", "file"];
 export const typeLabel = (x: FieldType) => ({
@@ -78,3 +79,12 @@ export function describeErrors(errors: Record<string, string>, fields: FormField
 }
 
 export const newField = (taken: Iterable<string>): FormField => ({ key: uniqueKey("question", taken), type: "text", label: "", required: false });
+
+/** Shows an answer the way the person gave it: by name where the server resolved one, otherwise formatted by type. */
+export function answerText(a: TicketAnswer): string {
+  if (a.display) return td(a.display);   // a choice from the starter catalog reads in the person's language
+  if (a.type === "yes_no") return a.value === true ? t("Yes") : t("No");
+  if (a.type === "datetime" && typeof a.value === "string") return fmtDateTime(a.value);
+  if (Array.isArray(a.value)) return a.value.join(", ");
+  return String(a.value ?? "—");
+}
