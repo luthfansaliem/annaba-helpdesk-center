@@ -7,7 +7,7 @@ import { Panel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CatalogIcon, TONES } from "@/components/catalog-icon";
 import { ModuleEmpty } from "@/components/insights/module-empty";
-import { TicketStatusBadge } from "@/components/tickets/status";
+import { RequesterStatusBadge } from "@/components/tickets/status";
 import { Skeleton } from "@/components/ui/states";
 import { get } from "@/lib/api/client";
 import type { KbSuggestion, Paged, PortalCatalog, TicketListItem } from "@/lib/api/types";
@@ -73,7 +73,10 @@ function MyOpen() {
         {rows.map((r) => (
           <li key={r.id}>
             <div><Link href={`/tickets/${r.id}`}><b>{r.subject}</b></Link><small>{r.number} · {td(r.serviceName)} · {t("updated")} {rel(r.updatedAt)}</small></div>
-            <TicketStatusBadge status={r.status} />
+            <span className="req-status">
+              <RequesterStatusBadge status={r.status} />
+              {r.status === "resolved" && <Link className="link-btn" href={`/tickets/${r.id}`}>{t("Check and confirm")}</Link>}
+            </span>
           </li>
         ))}
       </ul>
@@ -94,10 +97,10 @@ export function RequesterHome() {
       </div>
       <AskBox catalog={catalog.data} />
       <div className="home-grid">
-        <Panel title={t("Popular services")} actions={<Link className="link-btn" href="/requests/new">{t("All services")}</Link>}>
+        <Panel className="home-popular" title={t("Popular services")} actions={<Link className="link-btn" href="/requests/new">{t("All services")}</Link>}>
           {catalog.data ? <Popular catalog={catalog.data} /> : <div className="tiles">{[0, 1, 2, 3].map((i) => <Skeleton key={i} h={64} />)}</div>}
         </Panel>
-        <Panel title={t("My open requests")} actions={<Link className="link-btn" href="/requests">{t("All my requests")}</Link>}><MyOpen /></Panel>
+        <Panel className="home-mine" title={t("My open requests")} actions={<Link className="link-btn" href="/requests">{t("All my requests")}</Link>}><MyOpen /></Panel>
       </div>
       <Panel title={t("Help yourself first")} description={t("Answers to common questions, how-tos and the building rules are often quicker than a request.")} actions={<Button size="sm" href="/kb"><BookOpen size={14} /> {t("Open the knowledge base")}</Button>}>{null}</Panel>
     </>

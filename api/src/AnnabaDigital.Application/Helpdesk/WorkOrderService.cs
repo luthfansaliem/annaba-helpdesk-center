@@ -20,7 +20,8 @@ public sealed record WorkOrderDetail(Guid Id, string Number, string Title, strin
     Guid TicketId, string TicketNumber, string TicketSubject, string TicketStatus, Guid? AssetId, string? AssetTag, string? AssetName, DateTimeOffset? DueAt, string? HoldReason, DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt,
     string? CompletionNote, string? CancelReason, IReadOnlyList<WoTaskItem> Tasks, IReadOnlyList<WoTimeItem> Times, int TotalMinutes, IReadOnlyList<WoCostItem>? Costs, decimal? CostTotal, IReadOnlyList<WoFile> Files,
     IReadOnlyList<string> Allowed, bool CanEdit, bool CanWork, bool CanCosts, IReadOnlyList<string> Missing, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, int Version,
-    Guid? VendorId = null, string? VendorName = null, string? VendorPhone = null, string? PurchaseOrder = null, decimal? LabourCost = null);
+    Guid? VendorId = null, string? VendorName = null, string? VendorPhone = null, string? PurchaseOrder = null, decimal? LabourCost = null,
+    string? TicketPriority = null, string? LocationName = null);   // where to go and how urgent it is: what a technician sorts the day's work by (field mode)
 public sealed record TicketWorkOrders(bool ResolveTicket, bool CanManage, IReadOnlyList<WorkOrderListItem> Items);
 public sealed record TaskInput(Guid? Id, string? Text, bool Required = true);
 public sealed record SaveWorkOrderRequest(string? Title, string? Instructions, Guid? AssigneeId, Guid? TeamId, DateTimeOffset? DueAt, bool Required = true, bool RequireAfterPhoto = false,
@@ -138,7 +139,8 @@ public sealed class WorkOrderService(IAppDb db, IClock clock, AuditWriter audit,
 
     private async Task<WorkOrderDetail> BuildAsync(WorkOrder x, Who w, CancellationToken ct)
     {
-        var t = await db.Tickets.AsNoTracking().Where(k => k.Id == x.TicketId).Select(k => new { k.Number, k.Subject, k.Status }).FirstAsync(ct);
+        var t = await db.Tickets.AsNoTracking().Where(k => k.Id == x.TicketId)
+            .Select(k => new { k.Number, k.Subject, k.Status, k.Priority, Location = db.Locations.Where(l => l.Id == k.LocationId).Select(l => l.Name).FirstOrDefault() }).FirstAsync(ct);
         var who = x.AssigneeId is { } a ? await db.Users.AsNoTracking().Where(u => u.Id == a).Select(u => u.Name).FirstOrDefaultAsync(ct) : null;
         var team = x.TeamId is { } tm ? await db.Teams.AsNoTracking().Where(k => k.Id == tm).Select(k => k.Name).FirstOrDefaultAsync(ct) : null;
         var asset = x.AssetId is { } aid ? await db.Assets.AsNoTracking().Where(k => k.Id == aid).Select(k => new { k.Tag, k.Name }).FirstOrDefaultAsync(ct) : null;
@@ -164,7 +166,8 @@ public sealed class WorkOrderService(IAppDb db, IClock clock, AuditWriter audit,
             allowed, canEdit, canWork && !finished, canCosts && x.Status != WorkOrderStatus.Cancelled && !ticketDone,
             x.Status == WorkOrderStatus.InProgress ? WorkOrderRules.MissingForCompletion(x, tasks, files.Count(f => f.Stage == "after")) : [], x.CreatedAt, x.UpdatedAt, x.Version,
             x.VendorId, vendor?.Name, vendor?.Phone, x.PurchaseOrder,
-            canCosts && await db.CostSettings.AsNoTracking().Select(s => s.LabourRatePerHour).FirstOrDefaultAsync(ct) is { } rate ? times.Sum(k => CostService.Money(k.Minutes * rate / 60m)) : null);
+            canCosts && await db.CostSettings.AsNoTracking().Select(s => s.LabourRatePerHour).FirstOrDefaultAsync(ct) is { } rate ? times.Sum(k => CostService.Money(k.Minutes * rate / 60m)) : null,
+            t.Priority.ToString().ToLowerInvariant(), t.Location);
     }
 
     // ================================================================ checklist templates

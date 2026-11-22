@@ -309,6 +309,14 @@ td{padding:9px 12px;border-top:1px solid var(--line);font-size:13px;vertical-ali
 .auth .inp{height:48px;font-size:15px;margin-bottom:18px}.auth .inp input{font-size:15px}
 .auth .rem{font-size:14px;margin-bottom:20px}.auth .rem input{width:18px;height:18px}
 .auth .signin{height:50px;font-size:16px}
+/* Phone: the sign-in form is reachable without scrolling and nothing runs past the right edge (doc 70, finding 8). */
+@media(max-width:900px){.login{grid-template-columns:minmax(0,1fr);align-content:start}.login-left,.login-right{min-width:0}}
+@media(max-width:560px){
+ .login-left{padding:20px 20px 4px}.login-left .tag,.login-left .lead{display:none}.login-left h1{font-size:26px;margin:14px 0 4px}
+ .login-right{padding:8px 16px 28px}.lang-switch{position:static;align-self:flex-end;margin-bottom:10px}
+ .auth .login-card.auth-card{padding:22px 18px;border-radius:18px;max-width:100%}.auth .auth-head{margin-bottom:14px}.auth .auth-head h2{font-size:22px}
+ .auth .inp{height:44px;margin-bottom:14px}.auth .rem{margin-bottom:14px}
+}
 .auth .or{font-size:13px;margin:22px 0 16px}
 .field-help{color:var(--muted);font-size:12px;margin:-12px 0 14px}
 .fl .field-help{margin:6px 0 0} /* help inside a field sits right under its control (the negative margin above is for help placed after a field) */
@@ -534,6 +542,8 @@ a.kpi:hover{border-color:var(--line-2);background:var(--hover)}
 .kpi .v{font-size:24px;font-weight:800;color:var(--navy);letter-spacing:-.02em;line-height:1.2;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi .v.good{color:var(--green-ink)}.kpi .v.warn{color:var(--orange-ink)}.kpi .v.bad{color:var(--red-ink)}
 .kpi .n{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35}
+/* On a phone the strip is two compact columns, so the page's own content starts within the first screen instead of after six full-width cards. */
+@media(max-width:560px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.kpi{padding:10px 12px;gap:8px}.kpi .ki{display:none}.kpi .v{font-size:20px}.kpi .n{font-size:11px}}
 
 /* chart grid and cards */
 .chart-grid{display:grid;gap:12px;margin-bottom:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
@@ -566,6 +576,9 @@ a.kpi:hover{border-color:var(--line-2);background:var(--hover)}
 .chk input{accent-color:var(--blue)}
 .filters .btn{height:34px}
 .qtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.qbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between}.qbar .qtabs{flex:1 1 520px;min-width:0}
+.views-inline{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}.views-inline .ctl{min-width:170px}
+.qtabs button b.warn{background:var(--orange-50);color:var(--orange-ink)}.qtabs button b.bad{background:var(--red-50);color:var(--red-ink)}
 .qtabs button{display:inline-flex;gap:8px;align-items:center;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:12px;color:var(--ink-strong)}
 .qtabs button b{background:var(--chip);color:var(--ink-mid);border-radius:999px;padding:0 7px;font-size:11px;line-height:18px}
 .qtabs button[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff}
@@ -609,10 +622,16 @@ a.kpi:hover{border-color:var(--line-2);background:var(--hover)}
 .req-list li{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .req-list li:first-child{border-top:0}
 .req-list li>div{flex:1;min-width:0}
+.field-item .link-btn{text-align:left;display:block}.req-list .field-item small{display:block;color:var(--muted);margin-top:2px;white-space:normal;overflow:visible}
+.field-badges{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.field-detail-anchor{scroll-margin-top:72px;min-width:0}
+@media(max-width:560px){.crud-top>span.row{flex-wrap:wrap}}   /* header buttons wrap on a phone instead of running past the edge */
 .req-list a b{color:var(--navy)}
 .req-list small{color:var(--muted);display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .home-grid{display:grid;gap:12px;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);align-items:start;margin-bottom:12px}
-@media(max-width:1100px){.home-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:1100px){.home-grid{grid-template-columns:minmax(0,1fr)}.home-grid>.home-mine{order:-1}}   /* one column: what I asked for first, then what I can ask for */
+@media(max-width:560px){.home-popular .tile:nth-child(n+5){display:none}}   /* four services on a phone; "All services" has the rest */
+.req-status{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
 
 /* ticket page: conversation wide on the left, facts and actions on the right */
 .tk-head{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}

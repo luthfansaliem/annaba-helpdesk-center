@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox, Field, TextInput } from "@/components/ui/field";
 import { Require } from "@/components/page-guard";
 import { WoStatusBadge } from "@/components/workorders/wo-bits";
+import { PriorityBadge } from "@/components/tickets/status";
 import { get } from "@/lib/api/client";
 import type { WorkOrderDetail, WorkOrderStatus } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
@@ -51,6 +52,9 @@ function FieldMode() {
   const [selected, setSelected] = useState<string | null>(null); const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
   const [minutes, setMinutes] = useState(""); const [note, setNote] = useState(""); const [actText, setActText] = useState(""); const [pending, setPending] = useState<Act | null>(null);
   const syncing = useRef(false);
+  const detailRef = useRef<HTMLDivElement>(null);
+  // the detail sits under the list on a phone: bring it into view when a work order is picked, or the tap seems to do nothing
+  useEffect(() => { if (selected) detailRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }); }, [selected]);
 
   const reloadOps = useCallback(async () => setOps(await listOps(owner)), [owner]);
   const store = useCallback(async (s: Snapshot) => { await saveSnapshot(s); setSnap(s); }, []);
@@ -145,17 +149,20 @@ function FieldMode() {
           {items.length === 0 ? <p className="tab-placeholder">{snap ? t("Nothing open is given to you.") : t("Open this page while online to keep your work orders here.")}</p> : (
             <ul className="req-list" data-testid="field-list">
               {items.map((x) => (
-                <li key={x.id}>
-                  <button type="button" className="link-btn" onClick={() => { setSelected(x.id); setPending(null); setActText(""); }} aria-pressed={x.id === selected}>
-                    <b>{x.number}</b> · {x.title}
-                  </button>
-                  <WoStatusBadge status={x.status} />
+                <li key={x.id} className="field-item">
+                  <div>
+                    <button type="button" className="link-btn" onClick={() => { setSelected(x.id); setPending(null); setActText(""); }} aria-pressed={x.id === selected}>
+                      <b>{x.number}</b> · {x.title}
+                    </button>
+                    <small>{[x.locationName, x.assetTag, x.dueAt ? `${t("due")} ${fmtDateTime(x.dueAt)}` : null].filter(Boolean).join(" · ")}</small>
+                  </div>
+                  <span className="field-badges">{x.ticketPriority && (x.ticketPriority === "urgent" || x.ticketPriority === "high") && <PriorityBadge priority={x.ticketPriority} />}<WoStatusBadge status={x.status} /></span>
                 </li>
               ))}
             </ul>
           )}
         </Panel>
-        {wo && (
+        {wo && (<div ref={detailRef} className="field-detail-anchor">
           <Panel title={`${wo.number} · ${wo.title}`} description={`${wo.ticketNumber} · ${wo.ticketSubject}${wo.dueAt ? ` · ${t("due")} ${fmtDateTime(wo.dueAt)}` : ""}`} data-testid="field-detail">
             <div className="stack">
               {wo.instructions && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{wo.instructions}</p>}
@@ -173,9 +180,9 @@ function FieldMode() {
               )}
               {wo.tasks.length > 0 && <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0 }} aria-label={t("Checklist")}>
                 {wo.tasks.map((k) => (
-                  <li key={k.id}><label className="row" style={{ gap: 8 }}>
+                  <li key={k.id}><label className="row" style={{ gap: 8, flexWrap: "nowrap", alignItems: "flex-start" }}>
                     <Checkbox checked={!!k.doneAt} disabled={wo.status !== "in_progress"} onChange={(e) => void queue(wo, { kind: "tick", path: `/api/work-orders/${wo.id}/tasks/${k.id}`, body: { done: e.target.checked, note: null }, label: `${wo.number}: ${k.text}` })} />
-                    <span>{k.text}</span></label></li>
+                    <span style={{ minWidth: 0 }}>{k.text}</span></label></li>
                 ))}
               </ul>}
               {wo.status === "in_progress" && <>
@@ -192,7 +199,7 @@ function FieldMode() {
               <p className="muted" style={{ margin: 0 }}>{t("{n} min logged", { n: wo.totalMinutes })} · {t("{n} photos", { n: wo.files.length })}</p>
             </div>
           </Panel>
-        )}
+        </div>)}
       </div>
     </>
   );

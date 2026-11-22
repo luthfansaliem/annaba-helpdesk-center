@@ -115,6 +115,7 @@ test.describe("SLA policies and assignment rules (TKT-003, SLA-002/006)", () => 
     await page.goto("/tickets");
     await page.getByLabel("Search", { exact: true }).fill(number);
     await expect(page.getByRole("row", { name: new RegExp(number) }).getByText("On track")).toBeVisible();
+    await page.getByRole("button", { name: "More filters" }).click();
     await page.getByLabel("SLA", { exact: true }).selectOption("ontrack");
     await page.getByLabel("Sort by").selectOption("due");
     await expect(page.getByRole("row", { name: new RegExp(number) })).toBeVisible();

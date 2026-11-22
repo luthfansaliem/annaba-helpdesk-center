@@ -6,8 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { Panel } from "@/components/ui/card";
 import { Field, SelectInput, TextInput } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
-import { KpiCard, KpiGrid } from "@/components/insights/kpi";
-import { AlarmClock, CheckCircle2, Inbox, Plus, Search, SlidersHorizontal, TriangleAlert, UserX } from "lucide-react";
+import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { DataTable, type Column } from "@/components/data/data-table";
 import { Pagination } from "@/components/data/pagination";
 import { Require } from "@/components/page-guard";
@@ -67,32 +66,29 @@ function Queue() {
   // quick views: one click sets the filters a desk uses most; the counts come from the same scope as the list (the operations summary)
   const ops = useQuery(() => get<OperationsReport>("/api/reports/operations", { days: 30 }).catch(() => undefined), [list.data?.total]);
   const k = ops.data?.kpis; const count = (st: string) => ops.data?.byStatus.find((x) => x.key === st)?.count ?? 0;
-  const quick: { id: string; label: string; n?: number; f: Partial<Filters> }[] = [
+  // the counts replace a separate strip of KPI cards (doc 70, finding 6): the table starts within the first screen, and a count that needs attention is coloured
+  const quick: { id: string; label: string; n?: number; tone?: "warn" | "bad"; f: Partial<Filters> }[] = [
     { id: "open", label: t("All open"), n: k?.open, f: { status: "open", sla: "", unassigned: false, assignedToMe: false } },
     { id: "mine", label: t("Assigned to me"), f: { status: "open", sla: "", unassigned: false, assignedToMe: true } },
-    { id: "unassigned", label: t("Unassigned"), n: k?.unassigned, f: { status: "open", sla: "", unassigned: true, assignedToMe: false } },
-    { id: "atrisk", label: t("At risk"), n: k?.atRisk, f: { status: "open", sla: "atrisk", unassigned: false, assignedToMe: false } },
-    { id: "breached", label: t("Overdue"), n: k?.overdue, f: { status: "open", sla: "breached", unassigned: false, assignedToMe: false } },
+    { id: "unassigned", label: t("Unassigned"), n: k?.unassigned, tone: k && k.unassigned > 0 ? "warn" : undefined, f: { status: "open", sla: "", unassigned: true, assignedToMe: false } },
+    { id: "atrisk", label: t("At risk"), n: k?.atRisk, tone: k && k.atRisk > 0 ? "warn" : undefined, f: { status: "open", sla: "atrisk", unassigned: false, assignedToMe: false } },
+    { id: "breached", label: t("Overdue"), n: k?.overdue, tone: k && k.overdue > 0 ? "bad" : undefined, f: { status: "open", sla: "breached", unassigned: false, assignedToMe: false } },
     { id: "onhold", label: t("On hold"), n: ops.data ? count("onhold") : undefined, f: { status: "onhold", sla: "", unassigned: false, assignedToMe: false } },
     { id: "approval", label: t("Waiting for approval"), n: k?.pendingApproval, f: { status: "pendingapproval", sla: "", unassigned: false, assignedToMe: false } },
   ];
   const isOn = (q: (typeof quick)[number]) => Object.entries(q.f).every(([key, v]) => f[key as keyof Filters] === v);
-  const extra = [f.locationId, f.from, f.to].filter(Boolean).length;
+  const extra = [f.sla, f.unassigned, f.assignedToMe, f.locationId, f.from, f.to].filter(Boolean).length;   // what sits behind "More filters"
 
   return (
     <>
       <PageHeader help="work-the-queue" title={t("Ticket Queue")} description={t("Requests for your teams, assigned to you, or everything if you supervise.")}
         actions={<Button variant="primary" href="/requests/new"><Plus size={15} /> {t("New request")}</Button>} />
-      <KpiGrid label={t("Queue at a glance")}>
-        <KpiCard icon={<Inbox size={18} />} label={t("Open")} value={k ? String(k.open) : "…"} note={t("in the backlog")} />
-        <KpiCard icon={<UserX size={18} />} label={t("Unassigned")} value={k ? String(k.unassigned) : "…"} note={t("nobody has them yet")} tone={k && k.unassigned > 0 ? "warn" : "default"} />
-        <KpiCard icon={<AlarmClock size={18} />} label={t("At risk")} value={k ? String(k.atRisk) : "…"} note={t("close to their SLA")} tone={k && k.atRisk > 0 ? "warn" : "good"} />
-        <KpiCard icon={<TriangleAlert size={18} />} label={t("Overdue")} value={k ? String(k.overdue) : "…"} note={t("past their SLA")} tone={k && k.overdue > 0 ? "bad" : "good"} />
-        <KpiCard icon={<CheckCircle2 size={18} />} label={t("Resolved")} value={k ? String(k.resolved) : "…"} note={t("last 30 days")} />
-      </KpiGrid>
       <Panel>
-        <div className="qtabs" role="group" aria-label={t("Quick views")}>
-          {quick.map((q) => <button key={q.id} type="button" aria-pressed={isOn(q)} onClick={() => { setF((x) => ({ ...x, ...q.f })); setPage(1); setSelected([]); }}>{q.label}{q.n !== undefined && <b>{q.n}</b>}</button>)}
+        <div className="qbar">
+          <div className="qtabs" role="group" aria-label={t("Quick views")}>
+            {quick.map((q) => <button key={q.id} type="button" aria-pressed={isOn(q)} onClick={() => { setF((x) => ({ ...x, ...q.f })); setPage(1); setSelected([]); }}>{q.label}{q.n !== undefined && <b className={q.tone}>{q.n}</b>}</button>)}
+          </div>
+          <ViewsBar inline current={toView(f)} onApply={(v) => { setF(fromView(v)); setPage(1); setSelected([]); setMore(Boolean(v.sla || v.unassigned || v.assignedToMe || v.locationId || v.from || v.to)); }} />
         </div>
         <div className="filters" role="search">
           <div className="fl grow"><label htmlFor="tq-q">{t("Search")}</label><TextInput id="tq-q" icon={<Search size={14} />} placeholder={t("Number, subject, details or requester")} value={f.q} onChange={(e) => set("q", e.target.value)} /></div>
@@ -102,18 +98,18 @@ function Queue() {
           <Field label={t("Priority")} htmlFor="tq-pr">
             <SelectInput id="tq-pr" value={f.priority} onChange={(e) => set("priority", e.target.value)} options={[{ value: "", label: t("Any priority") }, ...(["urgent", "high", "medium", "low"] as Priority[]).map((pr) => ({ value: pr, label: { urgent: t("Urgent"), high: t("High"), medium: t("Medium"), low: t("Low") }[pr] }))]} />
           </Field>
-          <Field label={t("SLA")} htmlFor="tq-sla">
-            <SelectInput id="tq-sla" value={f.sla} onChange={(e) => set("sla", e.target.value)} options={[{ value: "", label: t("Any SLA state") }, ...SLA_STATES.map((st) => ({ value: st, label: slaLabel(st) }))]} />
-          </Field>
           <Field label={t("Sort by")} htmlFor="tq-sort">
             <SelectInput id="tq-sort" value={f.sort} onChange={(e) => set("sort", e.target.value)} options={[{ value: "updated", label: t("Last updated") }, { value: "due", label: t("Deadline (soonest first)") }]} />
           </Field>
-          <label className="chk"><input type="checkbox" checked={f.unassigned} onChange={(e) => set("unassigned", e.target.checked)} /> {t("Unassigned only")}</label>
-          <label className="chk"><input type="checkbox" checked={f.assignedToMe} onChange={(e) => set("assignedToMe", e.target.checked)} /> {t("Assigned to me")}</label>
           <Button aria-expanded={more} onClick={() => setMore(!more)}><SlidersHorizontal size={14} /> {more ? t("Fewer filters") : t("More filters")}{extra > 0 && !more ? ` (${extra})` : ""}</Button>
         </div>
         {more && (
           <div className="filters">
+            <Field label={t("SLA")} htmlFor="tq-sla">
+              <SelectInput id="tq-sla" value={f.sla} onChange={(e) => set("sla", e.target.value)} options={[{ value: "", label: t("Any SLA state") }, ...SLA_STATES.map((st) => ({ value: st, label: slaLabel(st) }))]} />
+            </Field>
+            <label className="chk"><input type="checkbox" checked={f.unassigned} onChange={(e) => set("unassigned", e.target.checked)} /> {t("Unassigned only")}</label>
+            <label className="chk"><input type="checkbox" checked={f.assignedToMe} onChange={(e) => set("assignedToMe", e.target.checked)} /> {t("Assigned to me")}</label>
             <Field label={t("Place")} htmlFor="tq-loc">
               <SelectInput id="tq-loc" value={f.locationId} onChange={(e) => set("locationId", e.target.value)} options={[{ value: "", label: t("Anywhere") }, ...(places.data ?? []).map((l) => ({ value: l.id, label: l.path }))]} />
             </Field>
@@ -121,7 +117,6 @@ function Queue() {
             <Field label={t("Created until")} htmlFor="tq-to"><TextInput id="tq-to" type="date" value={f.to} onChange={(e) => set("to", e.target.value)} /></Field>
           </div>
         )}
-        <ViewsBar current={toView(f)} onApply={(v) => { setF(fromView(v)); setPage(1); setSelected([]); setMore(Boolean(v.locationId || v.from || v.to)); }} />
         <BulkBar ids={selected} onClear={() => setSelected([])} onDone={() => { setSelected([]); list.reload(); }} />
         <DataTable label={t("Tickets")} columns={cols} rows={rows} rowKey={(r) => r.id} selectable selected={selected} onSelectedChange={setSelected} emptyMessage={t("No tickets match.")} loading={list.data === undefined && list.loading} error={list.error?.message ?? null} onRetry={list.reload} />
         {total > 0 && <Pagination page={Math.min(page, pageCount)} pageCount={pageCount} onPageChange={(n) => { setPage(n); setSelected([]); }} pageSize={size} onPageSizeChange={(n) => { setSize(n); setPage(1); setSelected([]); }} summary={t("Showing {from}–{to} of {total}", { from: (page - 1) * size + 1, to: Math.min(page * size, total), total: list.data?.capped ? `${total.toLocaleString()}+` : total })} />}

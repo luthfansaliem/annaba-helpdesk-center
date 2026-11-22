@@ -14,6 +14,10 @@ export const statusLabel = (s: TicketStatus) => ({
 const statusTone: Record<TicketStatus, BadgeTone> = { submitted: "gray", assigned: "blue", inprogress: "blue", onhold: "orange", resolved: "green", closed: "gray", cancelled: "gray", reopened: "orange", pendingapproval: "orange", rejected: "red" };
 
 export function TicketStatusBadge({ status }: { status: TicketStatus }) { return <Badge tone={statusTone[status]}>{statusLabel(status)}</Badge>; }
+/** The status as the person who asked sees it: a resolved request is not done for them until they confirm it, so it says so. */
+export function RequesterStatusBadge({ status }: { status: TicketStatus }) {
+  return status === "resolved" ? <Badge tone="orange">{t("Waiting for your confirmation")}</Badge> : <TicketStatusBadge status={status} />;
+}
 
 export const priorityLabel = (p: Priority) => ({ low: t("Low"), medium: t("Medium"), high: t("High"), urgent: t("Urgent") })[p];
 const priorityTone: Record<Priority, BadgeTone> = { low: "gray", medium: "blue", high: "orange", urgent: "red" };

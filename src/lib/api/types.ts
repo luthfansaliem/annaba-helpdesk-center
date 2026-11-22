@@ -251,6 +251,8 @@ export type WorkOrderDetail = {
   startedAt: string | null; completedAt: string | null; completionNote: string | null; cancelReason: string | null; tasks: WoTask[]; times: WoTime[]; totalMinutes: number; costs: WoCost[] | null; costTotal: number | null; files: WoFile[];
   allowed: ("start" | "hold" | "resume" | "complete" | "cancel")[]; canEdit: boolean; canWork: boolean; canCosts: boolean; missing: string[]; createdAt: string; updatedAt: string; version: number;
   vendorId: string | null; vendorName: string | null; vendorPhone: string | null; purchaseOrder: string | null; labourCost: number | null;
+  /** Where to go and how urgent it is, for sorting the day in field mode (older snapshots on a device may lack them). */
+  ticketPriority?: Priority | null; locationName?: string | null;
 };
 export type ChecklistTemplateItem = { id: string; name: string; items: { text: string; required: boolean }[]; archived: boolean; version: number };
 

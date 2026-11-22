@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Field, SelectInput, TextInput } from "@/components/ui/field";
 import { DataTable, type Column } from "@/components/data/data-table";
 import { Pagination } from "@/components/data/pagination";
-import { TicketStatusBadge } from "@/components/tickets/status";
+import { RequesterStatusBadge } from "@/components/tickets/status";
 import { get } from "@/lib/api/client";
 import type { Paged, TicketListItem } from "@/lib/api/types";
 import { fmtDateTime } from "@/lib/format";
@@ -24,7 +24,7 @@ export default function MyRequestsPage() {
   const cols: Column<TicketListItem>[] = [
     { key: "n", header: t("Number"), cell: (r) => <Link href={`/tickets/${r.id}`}><b>{r.number}</b></Link> },
     { key: "s", header: t("Request"), cell: (r) => <><Link href={`/tickets/${r.id}`}>{r.subject}</Link><br /><small>{td(r.serviceName)}</small></> },
-    { key: "st", header: t("Status"), cell: (r) => <TicketStatusBadge status={r.status} /> },
+    { key: "st", header: t("Status"), cell: (r) => <RequesterStatusBadge status={r.status} /> },
     { key: "a", header: t("Handled by"), className: "hide-sm", cell: (r) => r.assigneeName ?? r.teamName ?? "—" },
     { key: "u", header: t("Updated"), className: "hide-sm", cell: (r) => fmtDateTime(r.updatedAt) },
   ];
