@@ -181,6 +181,34 @@ Prioritas: **P1** = mengganggu pemakaian sehari-hari atau kesan pertama klien, p
 - `GET /api/approvals/mine` kini mengirim deskripsi, lokasi, dan jawaban formulir (tanpa berkas) untuk setiap persetujuan yang menunggu. Pembentuk jawabannya dipindah ke `TicketAnswers.BuildAsync` dan dipakai bersama halaman tiket.
 - Kotak masuk menampilkan peminta, lokasi, deskripsi, dan hingga 4 jawaban di setiap baris, juga di ponsel.
 
+## Status perbaikan P2 (22 November 2026)
+
+**5. KPI di ponsel: diperbaiki.**
+- Di layar ≤560 px, strip KPI (`KpiGrid`, dipakai di semua modul) menjadi dua kolom ringkas tanpa ikon. Beranda teknisi kini menampilkan "Tiket saya" di layar pertama.
+- Pemesanan menyembunyikan "Tidak hadir" dan "Pemakaian ruangan dan kendaraan" bagi yang tidak punya `bookings.read_all`.
+- Beranda karyawan menampilkan permintaan terbuka sebelum layanan populer bila hanya ada satu kolom, dan di ponsel cukup 4 layanan populer.
+
+**6. Antrean Tiket: diperbaiki.**
+- Kartu KPI dilebur ke tab cepat, yang sudah membawa jumlahnya. Jumlah Belum ditugaskan dan Berisiko berwarna oranye, Terlambat berwarna merah.
+- "Tampilan tersimpan" pindah ke baris tab.
+- SLA dan dua checkbox (yang sama dengan tab) pindah ke "Filter lainnya". Tampilan tersimpan yang memakai filter itu membuka "Filter lainnya" sendiri.
+- Hasil: baris pertama tabel di ±346 px pada 1440×900 (sebelumnya ±750 px), dengan 8 baris terlihat.
+
+**7. Mode lapangan: diperbaiki.**
+- `WorkOrderDetail` (dan snapshot offline) kini membawa prioritas dan lokasi tiket.
+- Setiap baris menampilkan lokasi, aset, dan jatuh tempo, plus prioritas bila tinggi atau mendesak, dengan teks rata kiri.
+- Mengetuk item menggulir ke detailnya.
+- Tombol header turun baris di ponsel. Teks checklist yang panjang tetap di samping checkbox-nya.
+
+**8. Halaman masuk di ponsel: diperbaiki.**
+- Grid tidak lagi melebar.
+- Paragraf hero disembunyikan dan judul diperkecil.
+- Pilihan bahasa tidak lagi melayang.
+- Hasil: tombol **Masuk** berakhir di 639 px dari 812 px, dan lebar halaman 375 px.
+
+**9. "Selesai" di permintaan terbuka: diperbaiki.**
+- Bagi peminta, status Selesai kini berbunyi **Menunggu konfirmasi Anda**, dengan tautan **Periksa & konfirmasi** di Beranda. Ini juga berlaku di Permintaan saya.
+
 ## Urutan pengerjaan yang disarankan
 
 1. **Sebelum demo ke klien (±2–3 hari kerja):**

@@ -292,11 +292,11 @@ Gunanya: melihat semua permintaan yang harus ditangani tim Anda dan memastikan t
 
 ![Halaman Antrean Tiket](manual/13-antrean-tiket.png)
 
-*Antrean Tiket: angka ringkasan di atas, tab cepat, filter, lalu daftar tiket dengan status, prioritas, dan SLA.*
+*Antrean Tiket: tab cepat dengan jumlahnya, filter, lalu daftar tiket dengan status, prioritas, dan SLA.*
 
-- Angka di atas menunjukkan tiket **Terbuka**, **Belum ditugaskan**, **Berisiko** (mendekati batas SLA), **Terlambat** (melewati SLA), dan **Selesai** 30 hari terakhir.
-- Tab cepat menyaring dengan satu klik: **Ditugaskan ke saya**, **Belum ditugaskan**, **Berisiko**, **Terlambat**, **Ditunda**, **Menunggu persetujuan**.
-- Pakai **Cari** dan filter **Status**, **Prioritas**, **SLA**, serta **Filter lainnya**. Simpan kombinasi yang sering dipakai dengan **Simpan sebagai tampilan**.
+- Tab cepat menyaring dengan satu klik dan menunjukkan jumlahnya: **Semua yang terbuka**, **Ditugaskan ke saya**, **Belum ditugaskan**, **Berisiko** (mendekati batas SLA), **Terlambat** (melewati SLA), **Ditunda**, **Menunggu persetujuan**. Jumlah yang perlu perhatian berwarna oranye atau merah.
+- Pakai **Cari** dan filter **Status**, **Prioritas**, serta **Urutkan**. Filter **SLA**, **Hanya yang belum ditugaskan**, **Ditugaskan ke saya**, lokasi, dan tanggal ada di **Filter lainnya**.
+- Simpan kombinasi yang sering dipakai dengan **Simpan sebagai tampilan**, lalu pilih lagi dari **Tampilan tersimpan** di samping tab.
 - Centang beberapa tiket untuk menugaskan atau mengubahnya sekaligus.
 
 GA Agent melihat tiket timnya dan yang ditugaskan kepadanya. GA Supervisor ke atas melihat semua tiket.
@@ -349,7 +349,7 @@ Gunanya: tetap bisa bekerja di ruang mesin, basement, atau lift yang tidak ada s
 
 ![Mode lapangan](manual/17-mode-lapangan.png)
 
-*Mode lapangan: status koneksi dan jumlah perubahan yang menunggu di atas, perintah kerja terbuka Anda di bawahnya.*
+*Mode lapangan: status koneksi dan jumlah perubahan yang menunggu di atas, perintah kerja terbuka Anda di bawahnya, masing-masing dengan lokasi, aset, jatuh tempo, dan prioritas bila tinggi atau mendesak.*
 
 1. **Selagi masih ada sinyal**, buka **Service desk → Mode lapangan**. Perintah kerja terbuka milik Anda disimpan di perangkat. Biarkan halaman tetap terbuka.
 2. Di lokasi, pilih perintah kerjanya, lalu tekan **Mulai**, centang daftar periksa, catat waktu, atau tambahkan foto. Semua langsung tampil dan disimpan di perangkat. Baris status menunjukkan **Offline** dan berapa perubahan yang menunggu.
