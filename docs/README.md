@@ -1,7 +1,8 @@
 # Enterprise Auth & User Management Starter Kit — Documentation
 
-Status: **Phase 2 prototype implemented — awaiting Product Owner review.**
-No backend has been implemented. Per the approved workflow, backend work starts only after the prototype is approved.
+Status (2026-11-24): **the Identity & Access foundation (docs 00–22) and the GA Helpdesk built on it (docs 23–70, releases R1–R3) are implemented and deployed at `helpdesk.annabadigital.io`.** Not connected to Annaba Core or Workspace; not approved for customers. The table below lists the foundation's documents with the phase each was written in; the Helpdesk's own documents start at [23-ga-helpdesk-prd.md](23-ga-helpdesk-prd.md).
+
+The line that stood here until 2026-11-24 ("Phase 2 prototype… No backend has been implemented") was the template's and had not been true for this repository since 2026-11-11.
 
 | Doc | Purpose | Phase |
 |---|---|---|

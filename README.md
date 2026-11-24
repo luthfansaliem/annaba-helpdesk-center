@@ -1,7 +1,12 @@
-# Annaba Digital – Identity & Access
+# Annaba Helpdesk – GA service desk and facilities
 
-Identity and access management starter kit: a Next.js 15 web app (repo root) in front of a .NET 10 API (`api/`) with PostgreSQL.
-Sign-in with MFA and SSO (OIDC), users, roles and permissions, invitations, access requests and reviews, audit log, per-tenant settings and security policy, support mode for the platform operator, account closure and data export, English and Bahasa Indonesia, light and dark theme.
+A service desk for General Affairs teams, built on the Annaba Identity & Access foundation: a Next.js 15 web app (repo root) in front of a .NET 10 API (`api/`) with PostgreSQL.
+
+**Status (2026-11-24):** releases R1–R3 of the product's own PRD (`docs/23-ga-helpdesk-prd.md`) are built and running at `https://helpdesk.annabadigital.io` with demo data. It is a **stand-alone application with its own organisations and sign-in**: it is not connected to Annaba Core or Workspace (no launch from Workspace, no subscription, no plans or quotas), and it is not approved for customers. How it would become the Annaba Helpdesk product on the platform, and what happens to its own asset and maintenance modules, is an open decision: see `docs/roadmap/CODEBASE_DECISION.md` and `docs/roadmap/HELPDESK_CAPABILITY_MATRIX.md` in the `annaba-core-admin` repository.
+
+What it does: service catalogue with versioned forms, requests and tickets with a server-side lifecycle, teams, queues and assignment rules, SLA with working calendars and escalation, approvals with delegation, knowledge base, satisfaction ratings, e-mail to ticket, work orders with checklists and an offline field mode, preventive maintenance, vendors and a vendor portal, costs and budgets, room and vehicle bookings, visitors, mail, inventory and supplies, scheduled reports, directory sync (SCIM, CSV), notification channels, API keys and signed webhooks. Under it: sign-in with MFA and SSO (OIDC), users, roles and permissions, audit log, English and Bahasa Indonesia, light and dark theme.
+
+Where to read: the PRD and the slice reports under `docs/23…67`, the user manual `docs/68-helpdesk-user-manual.md`, the UX review `docs/70-ga-helpdesk-ux-review.md`, operations and the production deployment in `docs/22-staging-runbook.md`.
 
 <!-- template:start -->
 ## Using this repository as a template
