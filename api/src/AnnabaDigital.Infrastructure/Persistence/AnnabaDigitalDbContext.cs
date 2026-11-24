@@ -1283,7 +1283,9 @@ public class AnnabaDigitalDbContext(DbContextOptions<AnnabaDigitalDbContext> opt
             e.Property(x => x.Email).HasMaxLength(254).IsRequired();
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
-            e.HasIndex(x => x.Email).IsUnique();
+            // SPIKE H00: one person can be a member of several Workspaces, so an address is unique per tenant, no longer in the whole database.
+            e.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+            e.Property(x => x.AccountRef).HasMaxLength(80); e.HasIndex(x => new { x.TenantId, x.AccountRef }).IsUnique().HasFilter("account_ref is not null");
             e.HasIndex(x => x.Status);
             e.HasIndex(x => x.CreatedAt);
             e.Property(x => x.Version).IsConcurrencyToken();
@@ -1472,6 +1474,7 @@ public class AnnabaDigitalDbContext(DbContextOptions<AnnabaDigitalDbContext> opt
             e.Property(x => x.Slug).HasMaxLength(40).IsRequired(); e.Property(x => x.Name).HasMaxLength(200).IsRequired();
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
             e.HasIndex(x => x.Slug).IsUnique();
+            e.Property(x => x.WorkspaceKey).HasMaxLength(60); e.HasIndex(x => x.WorkspaceKey).IsUnique().HasFilter("workspace_key is not null");
         });
         ConfigureHelpdeskSetup(b);
         ConfigureCatalog(b);

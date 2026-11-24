@@ -14,6 +14,10 @@ public class Tenant
     public string Name { get; set; } = "";
     public TenantStatus Status { get; set; } = TenantStatus.Active;
     public bool IsPlatform { get; set; }
+    /// <summary>SPIKE H00: the Annaba Workspace this tenant stands for (null for a tenant made here by hand).</summary>
+    public string? WorkspaceKey { get; set; }
+    /// <summary>SPIKE H00: the highest entitlement revision Core delivered; 0 = none yet, the Workspace cannot be entered.</summary>
+    public int EntitlementRevision { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
 

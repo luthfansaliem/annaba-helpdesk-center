@@ -65,6 +65,7 @@ app.UseMiddleware<VendorPortalGateMiddleware>();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+app.MapWorkspaceBridge(); // SPIKE H00
 app.MapAuth();
 app.MapSso();
 app.MapAccount();
