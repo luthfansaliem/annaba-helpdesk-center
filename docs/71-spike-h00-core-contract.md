@@ -42,7 +42,7 @@ Mapping used: Workspace key → tenant (created once, with the same system roles
 | Routes that exist only for local identity | 102 of 449 (auth 7, MFA 6, SSO 2, account 7, users 21, roles 10, tenants 6, access requests 8, access reviews 7, account closures 7, directory 19, set-up 2) | To be switched off or replaced by Workspace under the platform. Their screens too |
 | Properties that point at a person | 64 | They keep working: a member is a real `users` row |
 | Test classes that sign in with a password | 62 of 76 | The suite stays valid as long as local sign-in exists in the Testing environment; under the platform it needs a "launch as" helper instead |
-| Full API suite on this branch, with e-mail unique per tenant | **672 of 672 passed** (670 before, plus the journey test and nothing lost) | Making an address unique per tenant broke nothing the suite checks. On the first run one test failed, as it should: the inventory of anonymous routes, which did not yet list the two new ones |
+| Full API suite on this branch, with e-mail unique per tenant | **671 of 672 passed** in the one full run (13 min 48 s). The one failure was the inventory of anonymous routes, which did not yet list `/api/launch`; after adding it, that test class and the journey test were run again (16 of 16), the full suite was not | Making an address unique per tenant broke nothing the suite checks. The suite has no test for one person in two tenants other than the new one, so this shows no regression, not that every e-mail lookup is right (see the row above) |
 
 ## 5. What the spike did not do (the rest of H1)
 
