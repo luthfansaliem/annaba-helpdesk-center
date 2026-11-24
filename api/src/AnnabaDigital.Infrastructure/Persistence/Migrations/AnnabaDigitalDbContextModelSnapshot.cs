@@ -5138,6 +5138,10 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<int>("EntitlementRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("entitlement_revision");
+
                     b.Property<bool>("IsPlatform")
                         .HasColumnType("boolean")
                         .HasColumnName("is_platform");
@@ -5160,12 +5164,22 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("status");
 
+                    b.Property<string>("WorkspaceKey")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("workspace_key");
+
                     b.HasKey("Id")
                         .HasName("pk_tenants");
 
                     b.HasIndex("Slug")
                         .IsUnique()
                         .HasDatabaseName("ix_tenants_slug");
+
+                    b.HasIndex("WorkspaceKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tenants_workspace_key")
+                        .HasFilter("workspace_key is not null");
 
                     b.ToTable("tenants", (string)null);
                 });
@@ -5876,6 +5890,11 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AccountRef")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("account_ref");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -5937,15 +5956,20 @@ namespace AnnabaDigital.Infrastructure.Persistence.Migrations
                     b.HasIndex("CreatedAt")
                         .HasDatabaseName("ix_users_created_at");
 
-                    b.HasIndex("Email")
-                        .IsUnique()
-                        .HasDatabaseName("ix_users_email");
-
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_users_status");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_users_tenant_id");
+
+                    b.HasIndex("TenantId", "AccountRef")
+                        .IsUnique()
+                        .HasDatabaseName("ix_users_tenant_id_account_ref")
+                        .HasFilter("account_ref is not null");
+
+                    b.HasIndex("TenantId", "Email")
+                        .IsUnique()
+                        .HasDatabaseName("ix_users_tenant_id_email");
 
                     b.ToTable("users", null, t =>
                         {

@@ -68,6 +68,9 @@ public static class DependencyInjection
         services.AddScoped<AccessRequestService>();
         services.AddScoped<AccessReviewService>();
         services.AddScoped<TenantService>();
+        // SPIKE H00: entering from Annaba Workspace.
+        services.Configure<Application.Platform.CoreOptions>(config.GetSection("Core")); services.AddScoped<Application.Platform.WorkspaceBridge>();
+        services.AddHttpClient<Application.Platform.ICoreExchange, Integrations.CoreExchange>(c => c.Timeout = TimeSpan.FromSeconds(5));
         services.AddScoped<RoleAdminService>();
         services.AddScoped<AnnabaDigital.Application.Helpdesk.LocationService>();
         services.AddScoped<AnnabaDigital.Application.Helpdesk.CalendarService>();

@@ -149,6 +149,10 @@ public sealed class ApiFactory(string connectionString, TestClock clock) : WebAp
     public const string ProxyKey = "test-proxy-key-0123456789abcdef0123456789";
     public const string Origin = "http://localhost:3000";
 
+    public const string CoreAdapterSecret = "test-core-adapter-secret-0123456789abcdef";
+    /// <summary>SPIKE H00. Stands in for Annaba Core's launch exchange: a code is worth one principal, once, and only with the state it was issued for.</summary>
+    public FakeCoreExchange Core { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -156,11 +160,13 @@ public sealed class ApiFactory(string connectionString, TestClock clock) : WebAp
         {
             ["ConnectionStrings:Default"] = connectionString, ["Api:ProxyKey"] = ProxyKey, ["Api:Origin"] = Origin,
             ["Api:AutoMigrate"] = "false", ["Retention:Enabled"] = "false", ["ReviewScheduler:Enabled"] = "false", ["Sla:Enabled"] = "false", ["Storage:Path"] = Path.Combine(Path.GetTempPath(), "annaba-test-files-" + Guid.NewGuid().ToString("N")), ["Security:CsrfKey"] = "test-csrf-key-0123456789abcdef0123456789",
+            ["Core:BaseUrl"] = "https://core.test", ["Core:ServiceKey"] = "helpdesk:test-service-key-0123456789abcdef0123456789", ["Core:AdapterSecret"] = CoreAdapterSecret, ["Core:AppKey"] = "helpdesk", // SPIKE H00
             ["Webhooks:AllowPrivateTargets"] = "true", ["Webhooks:PollSeconds"] = "1",   // tests deliver to a receiver on 127.0.0.1; the SSRF rules themselves are unit-tested
         }));
         builder.ConfigureTestServices(s =>
         {
             s.RemoveAll<IClock>(); s.AddSingleton<IClock>(clock);
+            s.RemoveAll<AnnabaDigital.Application.Platform.ICoreExchange>(); s.AddSingleton<AnnabaDigital.Application.Platform.ICoreExchange>(Core); // SPIKE H00: stands in for Annaba Core
             s.AddSingleton<IEndpointModule, ProbeModule>();
             s.RemoveAll<IEmailSender>(); s.AddSingleton<InMemoryEmailSender>(); s.AddSingleton<IEmailSender>(sp => sp.GetRequiredService<InMemoryEmailSender>());
             s.RemoveAll<IBreachedPasswordChecker>(); s.AddSingleton<IBreachedPasswordChecker, FakeBreachChecker>();
@@ -303,4 +309,18 @@ public sealed class Seed(ApiFactory factory, TestClock clock)
         factory.Services.GetRequiredService<AnnabaDigital.Application.Common.AppCache>().Clear(); // a test that edits the database directly is like another instance: nothing cached may outlive it
         return result;
     }
+}
+
+
+public sealed class FakeCoreExchange : AnnabaDigital.Application.Platform.ICoreExchange
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (AnnabaDigital.Application.Platform.CorePrincipal P, string? State)> _codes = new();
+    public string Issue(string workspaceKey, string account, string role, string? state = null, string app = "helpdesk", string? email = null, string? workspaceName = null)
+    {
+        var code = Guid.NewGuid().ToString("N");
+        _codes[code] = (new(new("acct_" + account, email ?? account + "@example.test", "Person " + account, "id"), new(workspaceKey, workspaceName ?? "PT " + workspaceKey, "Asia/Jakarta"), new(role, 1, 1), app), state);
+        return code;
+    }
+    public Task<AnnabaDigital.Application.Platform.CorePrincipal?> ExchangeAsync(string code, string? state, CancellationToken ct)
+        => Task.FromResult(_codes.TryRemove(code, out var x) && x.State == state ? x.P : null);
 }

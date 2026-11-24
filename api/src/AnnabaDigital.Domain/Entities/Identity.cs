@@ -7,6 +7,8 @@ public class User : ITenantScoped
     /// <summary>Always stored lower-cased (DB check + unique index).</summary>
     public string Email { get; set; } = "";
     public string Name { get; set; } = "";
+    /// <summary>SPIKE H00: the person's stable identity in Annaba Workspace ("acct_…"); null for an account made here. Unique per tenant.</summary>
+    public string? AccountRef { get; set; }
     public UserStatus Status { get; set; } = UserStatus.Pending;
     public DateTimeOffset? EmailVerifiedAt { get; set; }
     public int FailedLoginCount { get; set; }
